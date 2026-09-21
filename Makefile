@@ -7,4 +7,4 @@ report:
 	uv run ipthing-report
 
 open: report
-	open site/index.html
+	open docs/index.html

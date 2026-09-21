@@ -26,7 +26,7 @@ cp .env.example .env
 
 uv sync
 uv run ipthing-report
-open site/index.html
+open docs/index.html
 ```
 
 ## Layout
@@ -35,9 +35,9 @@ open site/index.html
 sql/           # named queries used by the report
 src/           # report builder
 templates/     # HTML shell + narrative
-site/          # generated static output (commit or publish via Pages)
+docs/          # generated static output (commit or publish via Pages)
 ```
 
 ## Publishing
 
-`site/` is static. Point GitHub Pages (or Cloudflare Pages) at `/site`, or rebuild in CI on a schedule.
+`docs/` is static. Point GitHub Pages (or Cloudflare Pages) at `/docs`, or rebuild in CI on a schedule.

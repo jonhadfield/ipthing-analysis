@@ -16,7 +16,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 ROOT = Path(__file__).resolve().parents[2]
 SQL_DIR = ROOT / "sql"
 TEMPLATE_DIR = ROOT / "templates"
-SITE_DIR = ROOT / "site"
+SITE_DIR = ROOT / "docs"
 
 
 def _connect() -> psycopg.Connection:
