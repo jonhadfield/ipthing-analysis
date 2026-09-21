@@ -60,10 +60,45 @@ def build() -> Path:
         tls = _read_sql(conn, "tls_versions.sql")
         proto = _read_sql(conn, "http_proto.sql")
         ua = _read_sql(conn, "ua_buckets.sql")
+        access = _read_sql(conn, "access_mode.sql")
+        access_daily = _read_sql(conn, "access_mode_daily.sql")
+        top_hosts = _read_sql(conn, "top_hosts.sql")
+
+    access_daily_long = access_daily.melt(
+        id_vars=["day"],
+        value_vars=["named_requests", "raw_ip_requests", "other_host_requests", "unset_requests"],
+        var_name="mode",
+        value_name="requests",
+    )
+    access_daily_long["mode"] = access_daily_long["mode"].map(
+        {
+            "named_requests": "named (ipthing.net)",
+            "raw_ip_requests": "raw IP",
+            "other_host_requests": "other Host",
+            "unset_requests": "Host unset",
+        }
+    )
 
     charts = {
         "daily": _fig_html(
             px.area(daily, x="day", y="requests", title="Requests per day")
+        ),
+        "access": _fig_html(
+            px.pie(
+                access,
+                names="access_mode",
+                values="requests",
+                title="How clients addressed the service",
+            )
+        ),
+        "access_daily": _fig_html(
+            px.area(
+                access_daily_long,
+                x="day",
+                y="requests",
+                color="mode",
+                title="Named vs raw-IP vs other access over time",
+            )
         ),
         "countries": _fig_html(
             px.bar(
@@ -101,6 +136,8 @@ def build() -> Path:
         overview=overview,
         countries=countries.to_dict(orient="records"),
         orgs=orgs.to_dict(orient="records"),
+        access=access.to_dict(orient="records"),
+        top_hosts=top_hosts.to_dict(orient="records"),
         charts=charts,
     )
     out = SITE_DIR / "index.html"

@@ -102,8 +102,47 @@
   </div>
   <div class="note">
     Every stored hit so far is <code>GET /</code>. Diversity lives in
-    <em>who</em> connects (ASN, country, UA, TLS/HTTP version), not in paths or methods.
+    <em>who</em> connects (ASN, country, UA, TLS/HTTP version), and in
+    <em>how they addressed the host</em> (DNS name vs raw IP).
   </div>
+
+  <h2>Did they know the name?</h2>
+  <p>
+    We classify each request from the HTTP <code>Host</code> header and TLS SNI
+    (<code>tls_server_name</code>):
+  </p>
+  <ul>
+    <li><strong>named</strong> — <code>ipthing.net</code> (or a subdomain) appears in Host and/or SNI. Strong signal the client resolved or was given the DNS name.</li>
+    <li><strong>raw IP</strong> — Host is a literal IPv4 address (often <code>159.203.159.64</code> or an older droplet IP). Typical of address-space scanners and tools that never looked up the name.</li>
+    <li><strong>other Host</strong> — some other hostname (CDN leftovers, random/spoofed names). Often opportunistic TLS or misdirected probes.</li>
+    <li><strong>unknown</strong> — Host was empty; common on older rows before that field was logged.</li>
+  </ul>
+  <div class="chart">{{ charts.access | safe }}</div>
+  <table>
+    <thead><tr><th>Access mode</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in access %}
+      <tr>
+        <td>{{ row.access_mode }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="chart">{{ charts.access_daily | safe }}</div>
+  <p>
+    Top <code>Host</code> values (including empty) show the same split in raw form —
+    named traffic clusters on <code>ipthing.net</code>; raw-IP traffic on the server addresses.
+  </p>
+  <table>
+    <thead><tr><th>Host header</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% for row in top_hosts %}
+      <tr><td><code>{{ row.host }}</code></td><td>{{ "{:,}".format(row.requests) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
 
   <h2>Volume over time</h2>
   <p>
