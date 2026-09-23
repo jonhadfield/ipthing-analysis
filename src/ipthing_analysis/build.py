@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 ROOT = Path(__file__).resolve().parents[2]
 SQL_DIR = ROOT / "sql"
 TEMPLATE_DIR = ROOT / "templates"
+STATIC_DIR = ROOT / "static"
 SITE_DIR = ROOT / "docs"
 
 # Cool steel → cyan palette (avoids flat single hues and purple defaults).
@@ -237,6 +239,10 @@ def _bars_3d(df: pd.DataFrame, *, category: str, value: str, title: str) -> go.F
 
 def build() -> Path:
     SITE_DIR.mkdir(parents=True, exist_ok=True)
+    if STATIC_DIR.is_dir():
+        for path in STATIC_DIR.iterdir():
+            if path.is_file():
+                shutil.copy2(path, SITE_DIR / path.name)
 
     with _connect() as conn:
         overview = _read_sql(conn, "overview.sql").iloc[0].to_dict()

@@ -37,6 +37,7 @@ open docs/index.html
 sql/           # named queries used by the report
 src/           # report builder
 templates/     # HTML shell + narrative
+static/        # favicon, apple-touch-icon, web manifest
 docs/          # generated static output (commit or publish via Pages)
 ```
 
