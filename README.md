@@ -2,6 +2,8 @@
 
 Static analysis of traffic recorded by [ipthing](https://github.com/jonhadfield/ipthing) — a public HTTP request inspector at [ipthing.net](https://ipthing.net).
 
+**Live report:** [stats.ipthing.net](https://stats.ipthing.net/)
+
 ## What this is
 
 A **separate** repo from the Go service. It reads the Postgres database (Neon) in **read-only** fashion and builds a static HTML report: charts, tables, and short explanations of what the data shows.
@@ -39,6 +41,8 @@ docs/          # generated static output (commit or publish via Pages)
 ```
 
 ## Publishing
+
+The public report is at **[https://stats.ipthing.net/](https://stats.ipthing.net/)** (GitHub Pages behind that hostname).
 
 GitHub Actions rebuilds the report **daily** (06:00 UTC) and on each push that changes queries/templates/code, then deploys via GitHub Pages.
 
