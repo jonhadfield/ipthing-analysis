@@ -1,0 +1,60 @@
+name: Update report
+
+on:
+  schedule:
+    # Daily 06:00 UTC. For weekly only: use "0 6 * * 1"
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "sql/**"
+      - "src/**"
+      - "templates/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/update-report.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::Add a repository secret named DATABASE_URL (read-only Neon URL)."
+            exit 1
+          fi
+          uv sync
+          uv run ipthing-report
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

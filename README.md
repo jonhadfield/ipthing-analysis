@@ -40,4 +40,10 @@ docs/          # generated static output (commit or publish via Pages)
 
 ## Publishing
 
-`docs/` is static. Point GitHub Pages (or Cloudflare Pages) at `/docs`, or rebuild in CI on a schedule.
+GitHub Actions rebuilds the report **daily** (06:00 UTC) and on each push that changes queries/templates/code, then deploys via GitHub Pages.
+
+1. Add a repository secret `DATABASE_URL` — the same read-only Neon URL as in `.env`.
+2. In **Settings → Pages**, set Source to **GitHub Actions** (not “Deploy from a branch”).
+3. Run **Actions → Update report → Run workflow** once to publish.
+
+Local `docs/index.html` is still useful for preview (`make open`); production always comes from the workflow. To run weekly instead of daily, change the cron in `.github/workflows/update-report.yml` to `0 6 * * 1`.
