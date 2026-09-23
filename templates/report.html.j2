@@ -101,9 +101,9 @@
     <div class="card"><div class="label">HTTP</div><div class="value">{{ "{:,}".format(overview.http_requests) }}</div></div>
   </div>
   <div class="note">
-    Every stored hit so far is <code>GET /</code>. Diversity lives in
-    <em>who</em> connects (ASN, country, UA, TLS/HTTP version), and in
-    <em>how they addressed the host</em> (DNS name vs raw IP).
+    Most traffic is still boring <code>GET /</code>, but scanners leave fingerprints
+    in query-parameter <em>names</em>, odd Host/SNI pairs, and rare spoofed
+    forwarding headers. See <strong>Probe behaviour</strong> below.
   </div>
 
   <h2>Did they know the name?</h2>
@@ -140,6 +140,92 @@
     <tbody>
     {% for row in top_hosts %}
       <tr><td><code>{{ row.host }}</code></td><td>{{ "{:,}".format(row.requests) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Probe behaviour</h2>
+  <p>
+    Security-oriented shape of the traffic: verbs and paths, query-parameter
+    names scanners inject, whether clients send spoofed forwarding headers, and
+    whether HTTP <code>Host</code> matches TLS SNI. Counts only — no raw header
+    dumps or query values.
+  </p>
+  <div class="cards">
+    <div class="card"><div class="label">With query params</div><div class="value">{{ "{:,}".format(probe.with_query_params) }}</div></div>
+    <div class="card"><div class="label">Distinct methods</div><div class="value">{{ "{:,}".format(probe.distinct_methods) }}</div></div>
+    <div class="card"><div class="label">Distinct paths</div><div class="value">{{ "{:,}".format(probe.distinct_paths) }}</div></div>
+    <div class="card"><div class="label">Claimed X-Forwarded-For</div><div class="value">{{ "{:,}".format(probe.with_claimed_xff) }}</div></div>
+    <div class="card"><div class="label">CF-Connecting-IP set</div><div class="value">{{ "{:,}".format(probe.with_cf_connecting_ip) }}</div></div>
+    <div class="card"><div class="label">XFF ≠ TCP peer</div><div class="value">{{ "{:,}".format(probe.xff_differs_from_peer) }}</div></div>
+    <div class="card"><div class="label">CF-IP ≠ TCP peer</div><div class="value">{{ "{:,}".format(probe.cf_differs_from_peer) }}</div></div>
+    <div class="card"><div class="label">Cookie-bearing</div><div class="value">{{ "{:,}".format(probe.with_cookies) }}</div></div>
+  </div>
+  <div class="note">
+    ipthing trusts the TCP peer address, not client-supplied forwarding headers.
+    Non-empty <code>X-Forwarded-For</code> / <code>CF-Connecting-IP</code> that
+    disagree with the peer are classic spoof attempts (or traffic that really
+    did pass a proxy). Both are rare here — rarity is the finding.
+  </div>
+  <div class="chart">{{ charts.methods | safe }}</div>
+  <table>
+    <thead><tr><th>Method</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in methods %}
+      <tr>
+        <td><code>{{ row.method }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="chart">{{ charts.paths | safe }}</div>
+  <table>
+    <thead><tr><th>Path</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in paths %}
+      <tr>
+        <td><code>{{ row.path }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p>
+    Query parameter <em>names</em> (not values) are a cheap fingerprint of
+    vulnerability scanners: <code>phpinfo</code>, <code>rest_route</code>,
+    <code>file</code>, Xdebug session starters, and similar show up even when
+    the path is still <code>/</code>.
+  </p>
+  <div class="chart">{{ charts.query_keys | safe }}</div>
+  <table>
+    <thead><tr><th>Query param name</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% for row in query_keys %}
+      <tr>
+        <td><code>{{ row.param_key }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p>
+    Host vs SNI: agreement usually means a normal TLS client. Empty SNI with a
+    Host set is common on plain HTTP or incomplete older rows. A mismatch
+    (when both are set) is a stronger opportunistic / misdirected probe signal.
+  </p>
+  <div class="chart">{{ charts.host_sni | safe }}</div>
+  <table>
+    <thead><tr><th>Host / SNI relation</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in host_sni %}
+      <tr>
+        <td>{{ row.host_sni_relation }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
     {% endfor %}
     </tbody>
   </table>
@@ -204,7 +290,7 @@
   <ul>
     <li>Selection bias: only hosts that chose (or were pointed at) ipthing.</li>
     <li>Geo/ASN labels are best-effort and can lag or mis-attribute shared IPs.</li>
-    <li>Public pages should stay aggregated; raw headers and cookies are out of scope here.</li>
+    <li>Public pages should stay aggregated; raw headers, cookies, and query <em>values</em> are out of scope here (param <em>names</em> only).</li>
   </ul>
   <p class="meta">
     Built from the <code>ipthing</code> Neon database by the

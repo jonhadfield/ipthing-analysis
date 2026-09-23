@@ -63,6 +63,11 @@ def build() -> Path:
         access = _read_sql(conn, "access_mode.sql")
         access_daily = _read_sql(conn, "access_mode_daily.sql")
         top_hosts = _read_sql(conn, "top_hosts.sql")
+        probe = _read_sql(conn, "probe_overview.sql").iloc[0].to_dict()
+        methods = _read_sql(conn, "methods.sql")
+        paths = _read_sql(conn, "paths.sql")
+        query_keys = _read_sql(conn, "query_param_keys.sql")
+        host_sni = _read_sql(conn, "host_sni.sql")
 
     access_daily_long = access_daily.melt(
         id_vars=["day"],
@@ -125,6 +130,35 @@ def build() -> Path:
         "ua": _fig_html(
             px.bar(ua, x="ua_bucket", y="requests", title="User-Agent buckets (heuristic)")
         ),
+        "methods": _fig_html(
+            px.bar(methods, x="method", y="requests", title="HTTP methods")
+        ),
+        "paths": _fig_html(
+            px.bar(
+                paths.head(12),
+                x="requests",
+                y="path",
+                orientation="h",
+                title="Top request paths",
+            ).update_yaxes(autorange="reversed")
+        ),
+        "query_keys": _fig_html(
+            px.bar(
+                query_keys.head(15),
+                x="requests",
+                y="param_key",
+                orientation="h",
+                title="Top query parameter names (not values)",
+            ).update_yaxes(autorange="reversed")
+        ),
+        "host_sni": _fig_html(
+            px.pie(
+                host_sni,
+                names="host_sni_relation",
+                values="requests",
+                title="HTTP Host vs TLS SNI",
+            )
+        ),
     }
 
     env = Environment(
@@ -134,10 +168,15 @@ def build() -> Path:
     html = env.get_template("report.html.j2").render(
         generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         overview=overview,
+        probe=probe,
         countries=countries.to_dict(orient="records"),
         orgs=orgs.to_dict(orient="records"),
         access=access.to_dict(orient="records"),
         top_hosts=top_hosts.to_dict(orient="records"),
+        methods=methods.to_dict(orient="records"),
+        paths=paths.to_dict(orient="records"),
+        query_keys=query_keys.to_dict(orient="records"),
+        host_sni=host_sni.to_dict(orient="records"),
         charts=charts,
     )
     out = SITE_DIR / "index.html"
