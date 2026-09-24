@@ -37,24 +37,28 @@
       --rule: #2a3542;
     }
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
       font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
       background: radial-gradient(1200px 600px at 10% -10%, #1a2a3a, var(--bg));
       color: var(--text);
       line-height: 1.55;
+      overflow-x: hidden;
     }
     main {
       max-width: 960px;
       margin: 0 auto;
       padding: 2.5rem 1.25rem 4rem;
+      width: 100%;
     }
-    h1, h2, h3 { line-height: 1.2; font-weight: 600; }
-    h1 { font-size: 2rem; margin-bottom: 0.35rem; }
+    h1, h2, h3 { line-height: 1.2; font-weight: 600; overflow-wrap: balance; }
+    h1 { font-size: clamp(1.45rem, 4.5vw, 2rem); margin-bottom: 0.35rem; }
     h2 {
       margin-top: 2.5rem;
       padding-top: 1rem;
       border-top: 1px solid var(--rule);
+      font-size: clamp(1.15rem, 3.5vw, 1.4rem);
     }
     p.lead { color: var(--muted); font-size: 1.05rem; max-width: 42rem; }
     .meta { color: var(--muted); font-size: 0.9rem; }
@@ -69,9 +73,15 @@
       border: 1px solid var(--rule);
       border-radius: 10px;
       padding: 0.9rem 1rem;
+      min-width: 0;
     }
-    .card .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .card .value { font-size: 1.35rem; margin-top: 0.25rem; font-variant-numeric: tabular-nums; }
+    .card .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value {
+      font-size: clamp(1.1rem, 3.5vw, 1.35rem);
+      margin-top: 0.25rem;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
     .chart {
       background:
         linear-gradient(145deg, rgba(61, 156, 240, 0.12), transparent 42%),
@@ -79,33 +89,75 @@
         var(--panel);
       border: 1px solid var(--rule);
       border-radius: 14px;
-      padding: 0.65rem 0.5rem 0.35rem;
+      padding: 0.65rem 0.35rem 0.35rem;
       margin: 1rem 0 1.5rem;
       overflow: hidden;
+      width: 100%;
+      max-width: 100%;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
         0 12px 28px rgba(0, 0, 0, 0.28);
+    }
+    .chart .js-plotly-plot,
+    .chart .plotly-graph-div {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .chart-desktop-only { display: block; }
+    .chart-mobile-only { display: none; }
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0.75rem 0 1.5rem;
+      border-radius: 8px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       font-variant-numeric: tabular-nums;
-      margin: 0.75rem 0 1.5rem;
+      margin: 0;
+      min-width: 280px;
     }
     th, td {
       text-align: left;
       padding: 0.45rem 0.5rem;
       border-bottom: 1px solid var(--rule);
+      vertical-align: top;
     }
-    th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+    th { color: var(--muted); font-weight: 500; font-size: 0.85rem; white-space: nowrap; }
+    td { overflow-wrap: anywhere; }
+    td code {
+      font-size: 0.85em;
+      word-break: break-word;
+    }
     .note {
       background: #15202b;
       border-left: 3px solid var(--accent);
       padding: 0.75rem 1rem;
       color: var(--muted);
       margin: 1rem 0;
+      overflow-wrap: anywhere;
     }
+    ul { padding-left: 1.2rem; }
+    li { margin: 0.35rem 0; }
     a { color: var(--accent); }
+
+    @media (max-width: 640px) {
+      main { padding: 1.25rem 0.85rem 3rem; }
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+      .card { padding: 0.7rem 0.75rem; }
+      .chart { border-radius: 10px; padding: 0.4rem 0.15rem 0.2rem; }
+      .chart-desktop-only { display: none; }
+      .chart-mobile-only { display: block; }
+      th, td { padding: 0.4rem 0.4rem; font-size: 0.9rem; }
+      p.lead { font-size: 0.98rem; }
+    }
+
+    @media (max-width: 380px) {
+      .cards { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -148,6 +200,7 @@
     <li><strong>unknown</strong> — Host was empty; common on older rows before that field was logged.</li>
   </ul>
   <div class="chart">{{ charts.access | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Access mode</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -160,11 +213,13 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   <div class="chart">{{ charts.access_daily | safe }}</div>
   <p>
     Top <code>Host</code> values (including empty) show the same split in raw form —
     named traffic clusters on <code>ipthing.net</code>; raw-IP traffic on the server addresses.
   </p>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Host header</th><th>Requests</th></tr></thead>
     <tbody>
@@ -173,6 +228,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
 
   <h2>Probe behaviour</h2>
   <p>
@@ -204,6 +260,7 @@
     Only <code>GET</code> was allowed until Wednesday 23&nbsp;September&nbsp;2026.
     Earlier rows cannot show other verbs even if clients tried them.
   </div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Method</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -216,7 +273,9 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   <div class="chart">{{ charts.paths | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Path</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -229,6 +288,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   <p>
     Query parameter <em>names</em> (not values) are a cheap fingerprint of
     vulnerability scanners: <code>phpinfo</code>, <code>rest_route</code>,
@@ -236,6 +296,7 @@
     the path is still <code>/</code>.
   </p>
   <div class="chart">{{ charts.query_keys | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Query param name</th><th>Requests</th></tr></thead>
     <tbody>
@@ -247,12 +308,14 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   <p>
     Host vs SNI: agreement usually means a normal TLS client. Empty SNI with a
     Host set is common on plain HTTP or incomplete older rows. A mismatch
     (when both are set) is a stronger opportunistic / misdirected probe signal.
   </p>
   <div class="chart">{{ charts.host_sni | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Host / SNI relation</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -265,6 +328,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
 
   <h2>Volume over time</h2>
   <p>
@@ -280,6 +344,7 @@
     live there — not because “most humans” do.
   </p>
   <div class="chart">{{ charts.countries | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Country</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -288,6 +353,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
 
   <h2>Which networks show up most</h2>
   <p>
@@ -296,6 +362,7 @@
     cloud VMs check such hosts continuously.
   </p>
   <div class="chart">{{ charts.orgs | safe }}</div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Org / ASN label</th><th>Distinct IPs</th></tr></thead>
     <tbody>
@@ -304,6 +371,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
 
   <h2>TLS and HTTP versions</h2>
   <p>
@@ -320,7 +388,8 @@
     casual browser-like traffic from curl/scripts and explicit bot UAs so the
     report can talk about mix without claiming perfect classification.
   </p>
-  <div class="chart">{{ charts.ua | safe }}</div>
+  <div class="chart chart-desktop-only">{{ charts.ua | safe }}</div>
+  <div class="chart chart-mobile-only">{{ charts.ua_mobile | safe }}</div>
 
   <h2>How to read this responsibly</h2>
   <ul>
@@ -336,5 +405,24 @@
     <a href="https://github.com/jonhadfield/ipthing">jonhadfield/ipthing</a>.
   </p>
 </main>
+
+<script>
+(function () {
+  function resizePlots() {
+    if (!window.Plotly) return;
+    document.querySelectorAll(".js-plotly-plot").forEach(function (el) {
+      try { Plotly.Plots.resize(el); } catch (e) {}
+    });
+  }
+  window.addEventListener("resize", resizePlots);
+  window.addEventListener("orientationchange", function () {
+    setTimeout(resizePlots, 150);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(resizePlots);
+  }
+  setTimeout(resizePlots, 50);
+})();
+</script>
 </body>
 </html>

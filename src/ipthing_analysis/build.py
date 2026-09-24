@@ -49,45 +49,62 @@ def _read_sql(conn: psycopg.Connection, name: str) -> pd.DataFrame:
 
 
 def _style(fig: go.Figure, *, height: int | None = None) -> go.Figure:
-    layout_height = height if height is not None else (fig.layout.height or 380)
+    layout_height = height if height is not None else (fig.layout.height or 360)
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(15,20,25,0.35)",
-        font=dict(family="IBM Plex Sans, system-ui, sans-serif", color="#c5d0db", size=13),
-        title=dict(font=dict(size=15, color="#e7ecf1"), x=0.02, xanchor="left"),
-        margin=dict(l=48, r=24, t=52, b=44) if not fig.layout.scene else fig.layout.margin,
+        font=dict(family="IBM Plex Sans, system-ui, sans-serif", color="#c5d0db", size=12),
+        title=dict(font=dict(size=14, color="#e7ecf1"), x=0.02, xanchor="left"),
+        margin=dict(l=40, r=16, t=48, b=88) if not fig.layout.scene else fig.layout.margin,
         height=layout_height,
+        autosize=True,
         legend=dict(
-            bgcolor="rgba(26,34,44,0.72)",
+            bgcolor="rgba(26,34,44,0.85)",
             bordercolor="rgba(61,156,240,0.25)",
             borderwidth=1,
-            font=dict(size=12),
+            font=dict(size=11),
+            orientation="h",
+            yanchor="top",
+            y=-0.18,
+            x=0,
+            xanchor="left",
         ),
         colorway=_PALETTE,
     )
     if fig.layout.scene:
         # Keep 3D margins/camera; only unify fonts/background.
-        fig.update_layout(margin=dict(l=10, r=10, t=52, b=10))
+        fig.update_layout(margin=dict(l=10, r=10, t=48, b=10))
         return fig
     fig.update_xaxes(
         gridcolor="rgba(42,53,66,0.65)",
         zerolinecolor="rgba(42,53,66,0.8)",
         linecolor="rgba(90,110,130,0.45)",
-        tickfont=dict(color="#9aa7b5"),
-        title_font=dict(color="#9aa7b5"),
+        tickfont=dict(color="#9aa7b5", size=11),
+        title_font=dict(color="#9aa7b5", size=11),
+        automargin=True,
     )
     fig.update_yaxes(
         gridcolor="rgba(42,53,66,0.65)",
         zerolinecolor="rgba(42,53,66,0.8)",
         linecolor="rgba(90,110,130,0.45)",
-        tickfont=dict(color="#9aa7b5"),
-        title_font=dict(color="#9aa7b5"),
+        tickfont=dict(color="#9aa7b5", size=11),
+        title_font=dict(color="#9aa7b5", size=11),
+        automargin=True,
     )
     return fig
 
 
 def _fig_html(fig: go.Figure) -> str:
-    return pio.to_html(_style(fig), full_html=False, include_plotlyjs=False)
+    return pio.to_html(
+        _style(fig),
+        full_html=False,
+        include_plotlyjs=False,
+        config={
+            "responsive": True,
+            "displayModeBar": False,
+            "scrollZoom": False,
+        },
+    )
 
 
 def _area(df: pd.DataFrame, *, x: str, y: str, title: str, color: str | None = None) -> go.Figure:
@@ -112,6 +129,34 @@ def _area(df: pd.DataFrame, *, x: str, y: str, title: str, color: str | None = N
     return fig
 
 
+def _donut(df: pd.DataFrame, *, names: str, values: str, title: str) -> go.Figure:
+    fig = px.pie(
+        df,
+        names=names,
+        values=values,
+        title=title,
+        hole=0.55,
+        color_discrete_sequence=_PALETTE,
+    )
+    # Labels in the legend; percent inside the ring — avoids clipped outside labels on phones.
+    fig.update_traces(
+        textposition="inside",
+        textinfo="percent",
+        textfont=dict(size=11, color="#e7ecf1"),
+        insidetextorientation="horizontal",
+        marker=dict(line=dict(color="#0f1419", width=2)),
+        pull=[0.015] * len(df),
+        rotation=40,
+    )
+    fig.update_layout(showlegend=True, height=390, margin=dict(l=16, r=16, t=48, b=72))
+    return fig
+
+
+def _short_label(value: object, limit: int = 28) -> str:
+    text = str(value)
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def _bars(
     df: pd.DataFrame,
     *,
@@ -121,9 +166,15 @@ def _bars(
     orientation: str = "v",
     color_by: str | None = None,
 ) -> go.Figure:
+    plot_df = df.copy()
+    # Shorten categorical axis labels so horizontal charts fit narrow screens.
+    label_col = y if orientation == "h" else x
+    if label_col in plot_df.columns and plot_df[label_col].dtype == object:
+        plot_df[label_col] = plot_df[label_col].map(_short_label)
+
     color_col = color_by or (x if orientation == "h" else y)
     fig = px.bar(
-        df,
+        plot_df,
         x=x,
         y=y,
         title=title,
@@ -140,30 +191,10 @@ def _bars(
         if orientation == "h"
         else "%{x}: %{y}<extra></extra>",
     )
-    fig.update_layout(coloraxis_showscale=False, bargap=0.28)
+    fig.update_layout(coloraxis_showscale=False, bargap=0.28, showlegend=False)
     if orientation == "h":
         fig.update_yaxes(autorange="reversed")
-    return fig
-
-
-def _donut(df: pd.DataFrame, *, names: str, values: str, title: str) -> go.Figure:
-    fig = px.pie(
-        df,
-        names=names,
-        values=values,
-        title=title,
-        hole=0.52,
-        color_discrete_sequence=_PALETTE,
-    )
-    fig.update_traces(
-        textposition="outside",
-        textinfo="label+percent",
-        textfont=dict(size=12, color="#c5d0db"),
-        marker=dict(line=dict(color="#0f1419", width=2)),
-        pull=[0.02] * len(df),
-        rotation=40,
-    )
-    fig.update_layout(showlegend=True)
+        fig.update_layout(height=max(300, 28 * len(plot_df) + 80), margin=dict(l=8, r=16, t=48, b=40))
     return fig
 
 
@@ -319,6 +350,9 @@ def build() -> Path:
         ),
         "ua": _fig_html(
             _bars_3d(ua, category="ua_bucket", value="requests", title="User-Agent buckets (3D)")
+        ),
+        "ua_mobile": _fig_html(
+            _bars(ua, x="ua_bucket", y="requests", title="User-Agent buckets")
         ),
         "methods": _fig_html(
             _bars(
