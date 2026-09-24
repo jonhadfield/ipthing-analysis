@@ -309,6 +309,31 @@
   </table>
   </div>
   <p>
+    Path themes group non-root probes into coarse buckets (secrets, WordPress,
+    VCS metadata, and so on). The daily chart contrasts successful root hits
+    with non-root / 404 traffic.
+  </p>
+  <div class="chart">{{ charts.path_themes | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Path theme</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% if path_themes %}
+    {% for row in path_themes %}
+      <tr>
+        <td>{{ row.path_theme }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    {% else %}
+      <tr><td colspan="3">No themed non-root paths yet.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  <div class="chart">{{ charts.probe_paths_daily | safe }}</div>
+  <p>
     Query parameter <em>names</em> (not values) are a cheap fingerprint of
     vulnerability scanners: <code>phpinfo</code>, <code>rest_route</code>,
     <code>file</code>, Xdebug session starters, and similar show up even when
@@ -357,6 +382,53 @@
     human “what’s my IP?” visits. Quiet days and noisy days are both informative.
   </p>
   <div class="chart">{{ charts.daily | safe }}</div>
+  <div class="chart">{{ charts.heatmap | safe }}</div>
+  <div class="note">
+    The heatmap is UTC. Scanner traffic often fills nights and weekends; human
+    browsing tends to cluster in weekday daytime for a given region.
+  </div>
+
+  <h2>Outcomes and latency</h2>
+  <p>
+    Status codes and response formats show how the service answered. Latency is
+    only available on newer rows where duration was recorded.
+  </p>
+  <div class="cards">
+    <div class="card"><div class="label">With duration</div><div class="value">{{ "{:,}".format(latency.with_duration) }}</div></div>
+    <div class="card"><div class="label">p50 ms</div><div class="value">{{ latency.p50_ms }}</div></div>
+    <div class="card"><div class="label">p95 ms</div><div class="value">{{ latency.p95_ms }}</div></div>
+    <div class="card"><div class="label">p99 ms</div><div class="value">{{ latency.p99_ms }}</div></div>
+  </div>
+  <div class="chart">{{ charts.status | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Status</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in status_codes %}
+      <tr>
+        <td><code>{{ row.status }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="chart">{{ charts.formats | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Response format</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in response_formats %}
+      <tr>
+        <td><code>{{ row.response_format }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
 
   <h2>Where clients appear to be</h2>
   <p>
@@ -396,12 +468,56 @@
 
   <h2>TLS and HTTP versions</h2>
   <p>
-    Modern stacks prefer TLS&nbsp;1.3 and HTTP/2. Older protocols still appear
-    from legacy clients and some scanners. Empty protocol fields usually mean
-    older log rows before those columns were populated.
+    Modern stacks prefer TLS&nbsp;1.3, HTTP/2, and AEAD cipher suites. Older
+    protocols and empty ALPN fields still appear from legacy clients, plain HTTP,
+    and older log rows before those columns were populated.
   </p>
   <div class="chart">{{ charts.tls | safe }}</div>
   <div class="chart">{{ charts.proto | safe }}</div>
+  <div class="chart">{{ charts.tls_alpn | safe }}</div>
+  <div class="chart">{{ charts.tls_ciphers | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Cipher suite</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% if tls_ciphers %}
+    {% for row in tls_ciphers[:12] %}
+      <tr>
+        <td><code>{{ row.cipher }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+      </tr>
+    {% endfor %}
+    {% else %}
+      <tr><td colspan="2">No cipher data yet.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Referers</h2>
+  <p>
+    Most hits have no <code>Referer</code> (direct tools and scanners). When one
+    is present, only the hostname is shown — not the full URL.
+  </p>
+  <div class="cards">
+    <div class="card"><div class="label">With Referer</div><div class="value">{{ "{:,}".format(referer_overview.with_referer) }}</div></div>
+    <div class="card"><div class="label">Without Referer</div><div class="value">{{ "{:,}".format(referer_overview.without_referer) }}</div></div>
+  </div>
+  <div class="chart">{{ charts.referers | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Referer host</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in referer_hosts[:20] %}
+      <tr>
+        <td><code>{{ row.referer_host }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
 
   <h2>Client flavour (User-Agent heuristics)</h2>
   <p>

@@ -292,6 +292,65 @@ def _bars_3d(df: pd.DataFrame, *, category: str, value: str, title: str) -> go.F
     return fig
 
 
+_CIPHER_NAMES: dict[int, str] = {
+    4865: "TLS_AES_128_GCM_SHA256",
+    4866: "TLS_AES_256_GCM_SHA384",
+    4867: "TLS_CHACHA20_POLY1305_SHA256",
+    49195: "ECDHE_ECDSA_AES_128_GCM_SHA256",
+    49199: "ECDHE_RSA_AES_128_GCM_SHA256",
+    49200: "ECDHE_RSA_AES_256_GCM_SHA384",
+    52392: "ECDHE_RSA_CHACHA20_POLY1305",
+    52393: "ECDHE_ECDSA_CHACHA20_POLY1305",
+    49196: "ECDHE_ECDSA_AES_256_GCM_SHA384",
+}
+
+_DOW_LABELS = {
+    1: "Mon",
+    2: "Tue",
+    3: "Wed",
+    4: "Thu",
+    5: "Fri",
+    6: "Sat",
+    7: "Sun",
+}
+
+
+def _cipher_label(cipher_id: object) -> str:
+    try:
+        cid = int(cipher_id)
+    except (TypeError, ValueError):
+        return str(cipher_id)
+    name = _CIPHER_NAMES.get(cid)
+    return f"{name} ({cid})" if name else f"suite {cid}"
+
+
+def _heatmap(df: pd.DataFrame, *, title: str) -> go.Figure:
+    if df.empty:
+        return _empty_chart(title, "No data yet")
+    grid = (
+        df.pivot_table(index="dow", columns="hour", values="requests", aggfunc="sum")
+        .reindex(index=range(1, 8), columns=range(24), fill_value=0)
+    )
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=grid.values,
+            x=[str(h) for h in grid.columns],
+            y=[_DOW_LABELS.get(i, str(i)) for i in grid.index],
+            colorscale=_BAR_SCALE,
+            hovertemplate=" %{y} %{x}:00 UTC<br>requests=%{z}<extra></extra>",
+            colorbar=dict(title="requests"),
+        )
+    )
+    fig.update_layout(
+        title=title,
+        height=360,
+        xaxis_title="Hour (UTC)",
+        yaxis_title="Day",
+        margin=dict(l=48, r=24, t=48, b=48),
+    )
+    return fig
+
+
 def build() -> Path:
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     if STATIC_DIR.is_dir():
@@ -315,6 +374,20 @@ def build() -> Path:
         paths = _read_sql(conn, "paths.sql")
         query_keys = _read_sql(conn, "query_param_keys.sql")
         host_sni = _read_sql(conn, "host_sni.sql")
+        status_codes = _read_sql(conn, "status_codes.sql")
+        tls_ciphers = _read_sql(conn, "tls_ciphers.sql")
+        tls_alpn = _read_sql(conn, "tls_alpn.sql")
+        response_formats = _read_sql(conn, "response_formats.sql")
+        referer_overview = _read_sql(conn, "referer_overview.sql").iloc[0].to_dict()
+        referer_hosts = _read_sql(conn, "referer_hosts.sql")
+        hour_of_week = _read_sql(conn, "hour_of_week.sql")
+        path_themes = _read_sql(conn, "path_themes.sql")
+        probe_paths_daily = _read_sql(conn, "probe_paths_daily.sql")
+        latency = _read_sql(conn, "latency.sql").iloc[0].to_dict()
+
+    if not tls_ciphers.empty:
+        tls_ciphers = tls_ciphers.copy()
+        tls_ciphers["cipher"] = tls_ciphers["cipher_id"].map(_cipher_label)
 
     access_daily_long = access_daily.melt(
         id_vars=["day"],
@@ -330,6 +403,23 @@ def build() -> Path:
             "unset_requests": "Host unset",
         }
     )
+
+    probe_daily_long = probe_paths_daily.melt(
+        id_vars=["day"],
+        value_vars=["root_ok", "probe_or_404"],
+        var_name="kind",
+        value_name="count",
+    )
+    probe_daily_long["kind"] = probe_daily_long["kind"].map(
+        {
+            "root_ok": "root OK (/)",
+            "probe_or_404": "non-root / 404",
+        }
+    )
+
+    referer_top = referer_hosts[
+        ~referer_hosts["referer_host"].isin(["(none)"])
+    ].head(12)
 
     charts = {
         "daily": _fig_html(_area(daily, x="day", y="requests", title="Requests per day")),
@@ -372,6 +462,20 @@ def build() -> Path:
         "proto": _fig_html(
             _donut(proto, names="proto", values="requests", title="HTTP protocol")
         ),
+        "tls_ciphers": _fig_html(
+            _bars(
+                tls_ciphers.head(12),
+                x="requests",
+                y="cipher",
+                orientation="h",
+                title="Top TLS cipher suites",
+            )
+            if not tls_ciphers.empty
+            else _empty_chart("Top TLS cipher suites", "No cipher data yet")
+        ),
+        "tls_alpn": _fig_html(
+            _donut(tls_alpn, names="alpn", values="requests", title="TLS ALPN")
+        ),
         "ua": _fig_html(
             _bars_3d(ua, category="ua_bucket", value="requests", title="User-Agent buckets (3D)")
         ),
@@ -395,6 +499,24 @@ def build() -> Path:
                 title="Top non-root paths (404 / probes)",
             )
         ),
+        "path_themes": _fig_html(
+            _bars(
+                path_themes,
+                x="requests",
+                y="path_theme",
+                orientation="h",
+                title="Non-root path themes",
+            )
+        ),
+        "probe_paths_daily": _fig_html(
+            _area(
+                probe_daily_long,
+                x="day",
+                y="count",
+                color="kind",
+                title="Root OK vs non-root / 404 over time",
+            )
+        ),
         "query_keys": _fig_html(
             _bars(
                 query_keys.head(15),
@@ -412,6 +534,41 @@ def build() -> Path:
                 title="HTTP Host vs TLS SNI (Host unrecorded 19 Dec 2025–23 Sep 2026)",
             )
         ),
+        "status": _fig_html(
+            _donut(status_codes, names="status", values="requests", title="HTTP status codes")
+        ),
+        "formats": _fig_html(
+            _donut(
+                response_formats,
+                names="response_format",
+                values="requests",
+                title="Response format",
+            )
+        ),
+        "referers": _fig_html(
+            _bars(
+                referer_top,
+                x="requests",
+                y="referer_host",
+                orientation="h",
+                title="Top referer hosts (excluding none)",
+            )
+        ),
+        "heatmap": _fig_html(
+            _heatmap(hour_of_week, title="Requests by day-of-week and hour (UTC)")
+        ),
+    }
+
+    def _ms(value: object) -> str:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return "—"
+        return f"{float(value):,.0f}"
+
+    latency_cards = {
+        "with_duration": int(latency.get("with_duration") or 0),
+        "p50_ms": _ms(latency.get("p50_ms")),
+        "p95_ms": _ms(latency.get("p95_ms")),
+        "p99_ms": _ms(latency.get("p99_ms")),
     }
 
     env = Environment(
@@ -422,14 +579,21 @@ def build() -> Path:
         generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         overview=overview,
         probe=probe,
+        latency=latency_cards,
+        referer_overview=referer_overview,
         countries=countries.to_dict(orient="records"),
         orgs=orgs.to_dict(orient="records"),
         access=access.to_dict(orient="records"),
         top_hosts=top_hosts.to_dict(orient="records"),
         methods=methods.to_dict(orient="records"),
         paths=paths.to_dict(orient="records"),
+        path_themes=path_themes.to_dict(orient="records"),
         query_keys=query_keys.to_dict(orient="records"),
         host_sni=host_sni.to_dict(orient="records"),
+        status_codes=status_codes.to_dict(orient="records"),
+        response_formats=response_formats.to_dict(orient="records"),
+        tls_ciphers=tls_ciphers.to_dict(orient="records") if not tls_ciphers.empty else [],
+        referer_hosts=referer_hosts.to_dict(orient="records"),
         charts=charts,
     )
     out = SITE_DIR / "index.html"
