@@ -4,6 +4,13 @@ SELECT
   count(DISTINCT method)::bigint AS distinct_methods,
   count(DISTINCT path)::bigint AS distinct_paths,
   count(*) FILTER (
+    WHERE path IS DISTINCT FROM '/'
+      AND btrim(COALESCE(path, '')) <> ''
+  )::bigint AS non_root_requests,
+  count(*) FILTER (
+    WHERE status_code = 404
+  )::bigint AS status_404,
+  count(*) FILTER (
     WHERE query_params IS NOT NULL
       AND btrim(query_params) NOT IN ('', '{}', 'null')
   )::bigint AS with_query_params,

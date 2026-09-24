@@ -157,6 +157,28 @@ def _short_label(value: object, limit: int = 28) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _empty_chart(title: str, message: str) -> go.Figure:
+    fig = go.Figure()
+    fig.update_layout(
+        title=title,
+        height=280,
+        annotations=[
+            dict(
+                text=message,
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=14, color="#9aa7b5"),
+            )
+        ],
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+    )
+    return fig
+
+
 def _bars(
     df: pd.DataFrame,
     *,
@@ -166,6 +188,8 @@ def _bars(
     orientation: str = "v",
     color_by: str | None = None,
 ) -> go.Figure:
+    if df.empty:
+        return _empty_chart(title, "No data yet")
     plot_df = df.copy()
     # Shorten categorical axis labels so horizontal charts fit narrow screens.
     label_col = y if orientation == "h" else x
@@ -368,7 +392,7 @@ def build() -> Path:
                 x="requests",
                 y="path",
                 orientation="h",
-                title="Top request paths",
+                title="Top non-root paths (404 / probes)",
             )
         ),
         "query_keys": _fig_html(

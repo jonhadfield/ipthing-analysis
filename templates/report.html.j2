@@ -250,6 +250,8 @@
     <div class="card"><div class="label">With query params</div><div class="value">{{ "{:,}".format(probe.with_query_params) }}</div></div>
     <div class="card"><div class="label">Distinct methods</div><div class="value">{{ "{:,}".format(probe.distinct_methods) }}</div></div>
     <div class="card"><div class="label">Distinct paths</div><div class="value">{{ "{:,}".format(probe.distinct_paths) }}</div></div>
+    <div class="card"><div class="label">Non-root paths</div><div class="value">{{ "{:,}".format(probe.non_root_requests) }}</div></div>
+    <div class="card"><div class="label">HTTP 404s</div><div class="value">{{ "{:,}".format(probe.status_404) }}</div></div>
     <div class="card"><div class="label">Claimed X-Forwarded-For</div><div class="value">{{ "{:,}".format(probe.with_claimed_xff) }}</div></div>
     <div class="card"><div class="label">CF-Connecting-IP set</div><div class="value">{{ "{:,}".format(probe.with_cf_connecting_ip) }}</div></div>
     <div class="card"><div class="label">XFF ≠ TCP peer</div><div class="value">{{ "{:,}".format(probe.xff_differs_from_peer) }}</div></div>
@@ -282,10 +284,17 @@
   </table>
   </div>
   <div class="chart">{{ charts.paths | safe }}</div>
+  <div class="note">
+    Successful inspector traffic is almost always <code>/</code>. The chart and
+    table below list the top non-root paths — typically 404 probes
+    (<code>/.env</code>, WordPress paths, and similar). Those paths are recorded
+    by ipthing for analytics; they do not get the IP-echo response.
+  </div>
   <div class="table-wrap">
   <table>
     <thead><tr><th>Path</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>
+    {% if paths %}
     {% for row in paths %}
       <tr>
         <td><code>{{ row.path }}</code></td>
@@ -293,6 +302,9 @@
         <td>{{ "{:,}".format(row.unique_ips) }}</td>
       </tr>
     {% endfor %}
+    {% else %}
+      <tr><td colspan="3">No non-root paths recorded yet.</td></tr>
+    {% endif %}
     </tbody>
   </table>
   </div>
