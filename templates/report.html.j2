@@ -129,9 +129,11 @@
     <div class="card"><div class="label">HTTP</div><div class="value">{{ "{:,}".format(overview.http_requests) }}</div></div>
   </div>
   <div class="note">
-    Most traffic is still boring <code>GET /</code>, but scanners leave fingerprints
-    in query-parameter <em>names</em>, odd Host/SNI pairs, and rare spoofed
-    forwarding headers. See <strong>Probe behaviour</strong> below.
+    Until Wednesday 23&nbsp;September&nbsp;2026 the service only allowed
+    <code>GET</code>, so historical method mix is almost entirely
+    <code>GET /</code>. Scanners still leave fingerprints in query-parameter
+    <em>names</em>, odd Host/SNI pairs, and rare spoofed forwarding headers.
+    See <strong>Probe behaviour</strong> below.
   </div>
 
   <h2>Did they know the name?</h2>
@@ -177,7 +179,9 @@
     Security-oriented shape of the traffic: verbs and paths, query-parameter
     names scanners inject, whether clients send spoofed forwarding headers, and
     whether HTTP <code>Host</code> matches TLS SNI. Counts only — no raw header
-    dumps or query values.
+    dumps or query values. Only <code>GET</code> was accepted until Wednesday
+    23&nbsp;September&nbsp;2026; other methods in the charts are from that date
+    onward.
   </p>
   <div class="cards">
     <div class="card"><div class="label">With query params</div><div class="value">{{ "{:,}".format(probe.with_query_params) }}</div></div>
@@ -196,6 +200,10 @@
     did pass a proxy). Both are rare here — rarity is the finding.
   </div>
   <div class="chart">{{ charts.methods | safe }}</div>
+  <div class="note">
+    Only <code>GET</code> was allowed until Wednesday 23&nbsp;September&nbsp;2026.
+    Earlier rows cannot show other verbs even if clients tried them.
+  </div>
   <table>
     <thead><tr><th>Method</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
     <tbody>

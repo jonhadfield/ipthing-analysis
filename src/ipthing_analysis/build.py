@@ -321,7 +321,12 @@ def build() -> Path:
             _bars_3d(ua, category="ua_bucket", value="requests", title="User-Agent buckets (3D)")
         ),
         "methods": _fig_html(
-            _bars(methods, x="method", y="requests", title="HTTP methods")
+            _bars(
+                methods,
+                x="method",
+                y="requests",
+                title="HTTP methods (GET-only until 23 Sep 2026)",
+            )
         ),
         "paths": _fig_html(
             _bars(

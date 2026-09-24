@@ -15,7 +15,7 @@ The production app keeps writing request logs; this project only interprets them
 | Fact | Meaning |
 |------|---------|
 | Source | `http_requests` + `ip_info` in the `ipthing` Neon database |
-| Shape | Almost entirely `GET /` — people and bots probing “what is my IP / headers” |
+| Shape | Mostly `GET /` (only `GET` was allowed until 23 Sep 2026) — people and bots probing “what is my IP / headers” |
 | Useful dimensions | Time, IP/ASN/country (geo cache), TLS version, HTTP proto, User-Agent class, spoofed forwarding headers |
 
 Privacy: public pages use **aggregates only**. Cookie/Authorization values are not stored by the app (redacted at write time). Do not publish raw `headers` blobs or individual client identifiers in the site.
