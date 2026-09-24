@@ -183,9 +183,11 @@
   <div class="note">
     Until Wednesday 23&nbsp;September&nbsp;2026 the service only allowed
     <code>GET</code>, so historical method mix is almost entirely
-    <code>GET /</code>. Scanners still leave fingerprints in query-parameter
-    <em>names</em>, odd Host/SNI pairs, and rare spoofed forwarding headers.
-    See <strong>Probe behaviour</strong> below.
+    <code>GET /</code>. From 19&nbsp;December&nbsp;2025 through that same date the
+    <code>Host</code> header was not recorded either. Scanners still leave
+    fingerprints in query-parameter <em>names</em>, odd Host/SNI pairs (when
+    logged), and rare spoofed forwarding headers. See
+    <strong>Probe behaviour</strong> below.
   </div>
 
   <h2>Did they know the name?</h2>
@@ -197,8 +199,12 @@
     <li><strong>named</strong> — <code>ipthing.net</code> (or a subdomain) appears in Host and/or SNI. Strong signal the client resolved or was given the DNS name.</li>
     <li><strong>raw IP</strong> — Host is a literal IPv4 address (often <code>159.203.159.64</code> or an older droplet IP). Typical of address-space scanners and tools that never looked up the name.</li>
     <li><strong>other Host</strong> — some other hostname (CDN leftovers, random/spoofed names). Often opportunistic TLS or misdirected probes.</li>
-    <li><strong>unknown</strong> — Host was empty; common on older rows before that field was logged.</li>
+    <li><strong>unknown</strong> — Host was empty. From 19&nbsp;December&nbsp;2025 until 23&nbsp;September&nbsp;2026 the <code>Host</code> header was not recorded, so that window shows up here even when clients sent one.</li>
   </ul>
+  <div class="note">
+    <code>Host</code> was not stored from 19&nbsp;December&nbsp;2025 through 23&nbsp;September&nbsp;2026.
+    Large “unknown / Host unset” and “both empty” slices in that period are a logging gap, not proof clients omitted the header.
+  </div>
   <div class="chart">{{ charts.access | safe }}</div>
   <div class="table-wrap">
   <table>
@@ -218,6 +224,7 @@
   <p>
     Top <code>Host</code> values (including empty) show the same split in raw form —
     named traffic clusters on <code>ipthing.net</code>; raw-IP traffic on the server addresses.
+    Empty Host counts are inflated by the 19&nbsp;Dec&nbsp;2025–23&nbsp;Sep&nbsp;2026 recording gap.
   </p>
   <div class="table-wrap">
   <table>
@@ -313,6 +320,8 @@
     Host vs SNI: agreement usually means a normal TLS client. Empty SNI with a
     Host set is common on plain HTTP or incomplete older rows. A mismatch
     (when both are set) is a stronger opportunistic / misdirected probe signal.
+    “Both empty” is dominated by 19&nbsp;December&nbsp;2025–23&nbsp;September&nbsp;2026, when
+    <code>Host</code> was not being recorded (SNI may still be present on HTTPS).
   </p>
   <div class="chart">{{ charts.host_sni | safe }}</div>
   <div class="table-wrap">

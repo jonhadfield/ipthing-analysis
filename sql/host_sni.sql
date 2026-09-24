@@ -1,4 +1,5 @@
--- Relationship between HTTP Host and TLS SNI (opportunistic TLS / probe signal)
+-- Relationship between HTTP Host and TLS SNI (opportunistic TLS / probe signal).
+-- Note: Host was not recorded 2025-12-19 through 2026-09-23.
 SELECT
   CASE
     WHEN host_norm IS NOT NULL AND sni_norm IS NOT NULL AND host_norm = sni_norm

@@ -314,7 +314,7 @@ def build() -> Path:
                 access,
                 names="access_mode",
                 values="requests",
-                title="How clients addressed the service",
+                title="How clients addressed the service (Host unrecorded 19 Dec 2025–23 Sep 2026)",
             )
         ),
         "access_daily": _fig_html(
@@ -323,7 +323,7 @@ def build() -> Path:
                 x="day",
                 y="requests",
                 color="mode",
-                title="Named vs raw-IP vs other access over time",
+                title="Named vs raw-IP vs other access over time (Host gap 19 Dec 2025–23 Sep 2026)",
             )
         ),
         "countries": _fig_html(
@@ -385,7 +385,7 @@ def build() -> Path:
                 host_sni,
                 names="host_sni_relation",
                 values="requests",
-                title="HTTP Host vs TLS SNI",
+                title="HTTP Host vs TLS SNI (Host unrecorded 19 Dec 2025–23 Sep 2026)",
             )
         ),
     }

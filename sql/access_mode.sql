@@ -1,4 +1,5 @@
--- How clients addressed the service: by name vs raw IP vs other/unknown
+-- How clients addressed the service: by name vs raw IP vs other/unknown.
+-- Note: Host was not recorded 2025-12-19 through 2026-09-23.
 SELECT
   CASE
     WHEN host ILIKE '%ipthing.net%'
