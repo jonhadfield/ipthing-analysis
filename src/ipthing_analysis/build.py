@@ -40,8 +40,24 @@ def _connect() -> psycopg.Connection:
     return psycopg.connect(url)
 
 
+# IPv6 was only enabled on IPV6_ENABLED; IPv6 peer addresses logged before then are
+# unreliable. These CTEs shadow the real tables so every query in sql/ excludes them.
+# Loopback (::1) and IPv4-mapped (::ffff:) addresses are kept.
+_IS_GLOBAL_V6 = "{col} LIKE '%:%' AND {col} NOT ILIKE '::ffff:%' AND {col} <> '::1'"
+_SCOPE_CTES = f"""WITH http_requests AS (
+  SELECT * FROM public.http_requests
+  WHERE NOT ({_IS_GLOBAL_V6.format(col="ip")} AND timestamp < '{IPV6_ENABLED:%Y-%m-%d}')
+),
+ip_info AS (
+  SELECT * FROM public.ip_info
+  WHERE NOT ({_IS_GLOBAL_V6.format(col="ip")})
+     OR ip IN (SELECT ip FROM http_requests)
+)
+"""
+
+
 def _read_sql(conn: psycopg.Connection, name: str) -> pd.DataFrame:
-    sql = (SQL_DIR / name).read_text()
+    sql = _SCOPE_CTES + (SQL_DIR / name).read_text()
     with conn.cursor() as cur:
         cur.execute(sql)
         cols = [d.name for d in cur.description]
@@ -368,7 +384,6 @@ def build() -> Path:
         proto = _read_sql(conn, "http_proto.sql")
         ua = _read_sql(conn, "ua_buckets.sql")
         access = _read_sql(conn, "access_mode.sql")
-        access_daily = _read_sql(conn, "access_mode_daily.sql")
         top_hosts = _read_sql(conn, "top_hosts.sql")
         probe = _read_sql(conn, "probe_overview.sql").iloc[0].to_dict()
         methods = _read_sql(conn, "methods.sql")
@@ -392,21 +407,6 @@ def build() -> Path:
     if not tls_ciphers.empty:
         tls_ciphers = tls_ciphers.copy()
         tls_ciphers["cipher"] = tls_ciphers["cipher_id"].map(_cipher_label)
-
-    access_daily_long = access_daily.melt(
-        id_vars=["day"],
-        value_vars=["named_requests", "raw_ip_requests", "other_host_requests", "unset_requests"],
-        var_name="mode",
-        value_name="requests",
-    )
-    access_daily_long["mode"] = access_daily_long["mode"].map(
-        {
-            "named_requests": "named (ipthing.net)",
-            "raw_ip_requests": "raw IP",
-            "other_host_requests": "other Host",
-            "unset_requests": "Host unset",
-        }
-    )
 
     probe_daily_long = probe_paths_daily.melt(
         id_vars=["day"],
@@ -459,15 +459,6 @@ def build() -> Path:
                 names="access_mode",
                 values="requests",
                 title="How clients addressed the service (since 23 Sep 2026)",
-            )
-        ),
-        "access_daily": _fig_html(
-            _area(
-                access_daily_long,
-                x="day",
-                y="requests",
-                color="mode",
-                title="Named vs raw-IP vs other access over time (Host gap 19 Dec 2025–23 Sep 2026)",
             )
         ),
         "countries": _fig_html(

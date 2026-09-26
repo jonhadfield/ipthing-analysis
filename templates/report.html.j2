@@ -188,6 +188,20 @@
     fingerprints in query-parameter <em>names</em>, odd Host/SNI pairs (when
     logged), and rare spoofed forwarding headers. See
     <strong>Probe behaviour</strong> below.
+    IPv6 was only enabled on 25&nbsp;September&nbsp;2026; IPv6 client addresses logged
+    before then are excluded from every figure.
+  </div>
+
+  <h2>Volume over time</h2>
+  <p>
+    Spikes often align with internet-wide scanning and cloud automation, not only
+    human “what’s my IP?” visits. Quiet days and noisy days are both informative.
+  </p>
+  <div class="chart">{{ charts.daily | safe }}</div>
+  <div class="chart">{{ charts.heatmap | safe }}</div>
+  <div class="note">
+    The heatmap is UTC. Scanner traffic often fills nights and weekends; human
+    browsing tends to cluster in weekday daytime for a given region.
   </div>
 
   <h2>Did they know the name?</h2>
@@ -203,9 +217,8 @@
   </ul>
   <div class="note">
     <code>Host</code> was not stored from 19&nbsp;December&nbsp;2025 until about 14:00&nbsp;UTC on
-    23&nbsp;September&nbsp;2026. The access-mode chart, its table, and the Host table below
-    only cover requests since then. The over-time chart keeps the full history; its
-    “Host unset” band across that gap is a logging gap, not proof clients omitted the header.
+    23&nbsp;September&nbsp;2026, so this section only covers requests since then. For traffic
+    over the whole period, see <strong>Volume over time</strong> above.
   </div>
   <div class="chart">{{ charts.access | safe }}</div>
   <div class="table-wrap">
@@ -222,7 +235,6 @@
     </tbody>
   </table>
   </div>
-  <div class="chart">{{ charts.access_daily | safe }}</div>
   <p>
     Top <code>Host</code> values since 23&nbsp;September&nbsp;2026 (including empty) show the same
     split in raw form — named traffic clusters on <code>ipthing.net</code>; raw-IP traffic on the
@@ -380,18 +392,6 @@
   </table>
   </div>
 
-  <h2>Volume over time</h2>
-  <p>
-    Spikes often align with internet-wide scanning and cloud automation, not only
-    human “what’s my IP?” visits. Quiet days and noisy days are both informative.
-  </p>
-  <div class="chart">{{ charts.daily | safe }}</div>
-  <div class="chart">{{ charts.heatmap | safe }}</div>
-  <div class="note">
-    The heatmap is UTC. Scanner traffic often fills nights and weekends; human
-    browsing tends to cluster in weekday daytime for a given region.
-  </div>
-
   <h2>IPv4 and IPv6</h2>
   <p>
     ipthing.net has answered over IPv6 since 25&nbsp;September&nbsp;2026. The client address
@@ -426,8 +426,7 @@
   <div class="note">
     The logs also hold IPv6 client addresses from before 25&nbsp;September&nbsp;2026,
     when IPv6 was not yet enabled. Those rows are treated as unreliable and left out
-    of this section, so every IPv6 figure here starts on 25&nbsp;September&nbsp;2026.
-    Other sections of the report still include them.
+    of the whole report, so every IPv6 figure starts on 25&nbsp;September&nbsp;2026.
   </div>
   <div class="table-wrap">
   <table>
