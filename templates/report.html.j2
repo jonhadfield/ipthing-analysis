@@ -197,7 +197,7 @@
   </p>
   <ul>
     <li><strong>named</strong> — <code>ipthing.net</code> (or a subdomain) appears in Host and/or SNI. Strong signal the client resolved or was given the DNS name.</li>
-    <li><strong>raw IP</strong> — Host is a literal IPv4 address (often <code>159.203.159.64</code> or an older droplet IP). Typical of address-space scanners and tools that never looked up the name.</li>
+    <li><strong>raw IP</strong> — Host is a literal IPv4 address (often <code>159.203.159.64</code> or an older droplet IP) or a bracketed IPv6 literal such as <code>[2001:db8::1]</code>. Typical of address-space scanners and tools that never looked up the name.</li>
     <li><strong>other Host</strong> — some other hostname (CDN leftovers, random/spoofed names). Often opportunistic TLS or misdirected probes.</li>
     <li><strong>unknown</strong> — Host was empty. From 19&nbsp;December&nbsp;2025 until 23&nbsp;September&nbsp;2026 the <code>Host</code> header was not recorded, so that window shows up here even when clients sent one.</li>
   </ul>
@@ -266,17 +266,19 @@
   </div>
   <div class="chart">{{ charts.methods | safe }}</div>
   <div class="note">
-    Only <code>GET</code> was allowed until Wednesday 23&nbsp;September&nbsp;2026.
-    Earlier rows cannot show other verbs even if clients tried them.
+    The method chart and table cover requests from Wednesday
+    23&nbsp;September&nbsp;2026 onward. Only <code>GET</code> was allowed before
+    that, so earlier rows cannot show other verbs even if clients tried them.
   </div>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Method</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <thead><tr><th>Method</th><th>Requests</th><th>Share</th><th>Distinct IPs</th></tr></thead>
     <tbody>
     {% for row in methods %}
       <tr>
         <td><code>{{ row.method }}</code></td>
         <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ row.share_pct }}%</td>
         <td>{{ "{:,}".format(row.unique_ips) }}</td>
       </tr>
     {% endfor %}
@@ -386,6 +388,58 @@
   <div class="note">
     The heatmap is UTC. Scanner traffic often fills nights and weekends; human
     browsing tends to cluster in weekday daytime for a given region.
+  </div>
+
+  <h2>IPv4 and IPv6</h2>
+  <p>
+    ipthing.net has answered over IPv6 since 25&nbsp;September&nbsp;2026. The client address
+    family comes from the peer IP the service recorded. IPv4-mapped addresses
+    (<code>::ffff:a.b.c.d</code>) count as IPv4, and loopback (<code>::1</code>,
+    <code>127.0.0.0/8</code>) from local testing is left out of the chart.
+  </p>
+  <div class="cards">
+    <div class="card"><div class="label">IPv6 requests</div><div class="value">{{ "{:,}".format(ipv6.requests) }}</div></div>
+    <div class="card"><div class="label">IPv6 distinct IPs</div><div class="value">{{ "{:,}".format(ipv6.unique_ips) }}</div></div>
+    <div class="card"><div class="label">IPv6 share since 25 Sep</div><div class="value">{{ ipv6.share_pct }}</div></div>
+    <div class="card"><div class="label">First IPv6 day</div><div class="value">{{ ipv6.first_day }}</div></div>
+  </div>
+  <div class="chart">{{ charts.ip_family | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Family</th><th>Requests</th><th>Distinct IPs</th><th>First day</th><th>Last day</th></tr></thead>
+    <tbody>
+    {% for row in ip_family %}
+      <tr>
+        <td>{{ row.family }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+        <td>{{ row.first_day }}</td>
+        <td>{{ row.last_day }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="chart">{{ charts.ipv6_share | safe }}</div>
+  <div class="note">
+    The logs also hold IPv6 client addresses from before 25&nbsp;September&nbsp;2026,
+    when IPv6 was not yet enabled. Those rows are treated as unreliable and left out
+    of this section, so every IPv6 figure here starts on 25&nbsp;September&nbsp;2026.
+    Other sections of the report still include them.
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Org / ASN label (IPv6)</th><th>Distinct IPs</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% for row in ipv6_orgs %}
+      <tr>
+        <td>{{ row.org }}</td>
+        <td>{{ "{:,}".format(row.ips) }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
   </div>
 
   <h2>Outcomes and latency</h2>

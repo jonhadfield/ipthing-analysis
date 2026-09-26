@@ -20,6 +20,7 @@ SQL_DIR = ROOT / "sql"
 TEMPLATE_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 SITE_DIR = ROOT / "docs"
+IPV6_ENABLED = pd.Timestamp("2026-09-25")
 
 # Cool steel → cyan palette (avoids flat single hues and purple defaults).
 _PALETTE = ["#2a6f97", "#3d9cf0", "#56cfe1", "#72efdd", "#80ed99", "#f4d35e", "#ee6c4d", "#9aa7b5"]
@@ -384,6 +385,9 @@ def build() -> Path:
         path_themes = _read_sql(conn, "path_themes.sql")
         probe_paths_daily = _read_sql(conn, "probe_paths_daily.sql")
         latency = _read_sql(conn, "latency.sql").iloc[0].to_dict()
+        ip_family = _read_sql(conn, "ip_family.sql")
+        ip_family_daily = _read_sql(conn, "ip_family_daily.sql")
+        ipv6_orgs = _read_sql(conn, "ipv6_orgs.sql")
 
     if not tls_ciphers.empty:
         tls_ciphers = tls_ciphers.copy()
@@ -416,6 +420,32 @@ def build() -> Path:
             "probe_or_404": "non-root / 404",
         }
     )
+
+    family_daily = ip_family_daily.copy()
+    family_total = family_daily["ipv4_requests"] + family_daily["ipv6_requests"]
+    family_daily["ipv6_share_pct"] = (
+        family_daily["ipv6_requests"] / family_total.where(family_total > 0) * 100
+    ).fillna(0.0).round(2)
+
+    # IPv6 was enabled on 2026-09-25; share is only meaningful from then on.
+    since_v6 = family_daily[pd.to_datetime(family_daily["day"]) >= IPV6_ENABLED]
+    v4_since = int(since_v6["ipv4_requests"].sum())
+    v6_since = int(since_v6["ipv6_requests"].sum())
+    v6_row = next(
+        (row for row in ip_family.to_dict(orient="records") if row["family"] == "IPv6"), {}
+    )
+    ipv6_cards = {
+        "requests": int(v6_row.get("requests") or 0),
+        "unique_ips": int(v6_row.get("unique_ips") or 0),
+        "share_pct": f"{v6_since / (v4_since + v6_since) * 100:.1f}%"
+        if (v4_since + v6_since)
+        else "—",
+        "first_day": v6_row.get("first_day") or "—",
+    }
+    # Start the share chart a week early so the switch-on is visible.
+    family_daily_recent = family_daily[
+        pd.to_datetime(family_daily["day"]) >= IPV6_ENABLED - pd.Timedelta(days=7)
+    ]
 
     referer_top = referer_hosts[
         ~referer_hosts["referer_host"].isin(["(none)"])
@@ -487,7 +517,7 @@ def build() -> Path:
                 methods,
                 x="method",
                 y="requests",
-                title="HTTP methods (GET-only until 23 Sep 2026)",
+                title="HTTP methods since 23 Sep 2026 (when non-GET was allowed)",
             )
         ),
         "paths": _fig_html(
@@ -554,6 +584,22 @@ def build() -> Path:
                 title="Top referer hosts (excluding none)",
             )
         ),
+        "ip_family": _fig_html(
+            _donut(
+                ip_family[ip_family["family"] != "loopback"],
+                names="family",
+                values="requests",
+                title="Requests by address family",
+            )
+        ),
+        "ipv6_share": _fig_html(
+            _area(
+                family_daily_recent,
+                x="day",
+                y="ipv6_share_pct",
+                title="IPv6 share of daily requests (%), from a week before enablement",
+            )
+        ),
         "heatmap": _fig_html(
             _heatmap(hour_of_week, title="Requests by day-of-week and hour (UTC)")
         ),
@@ -580,6 +626,9 @@ def build() -> Path:
         overview=overview,
         probe=probe,
         latency=latency_cards,
+        ipv6=ipv6_cards,
+        ip_family=ip_family.to_dict(orient="records"),
+        ipv6_orgs=ipv6_orgs.to_dict(orient="records"),
         referer_overview=referer_overview,
         countries=countries.to_dict(orient="records"),
         orgs=orgs.to_dict(orient="records"),

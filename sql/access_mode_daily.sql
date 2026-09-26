@@ -6,6 +6,7 @@ SELECT
   )::bigint AS named_requests,
   count(*) FILTER (
     WHERE host ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$'
+      OR host ~ '^\[[0-9A-Fa-f:.]+\](:[0-9]+)?$'
   )::bigint AS raw_ip_requests,
   count(*) FILTER (
     WHERE (host IS NULL OR host = '')
@@ -15,6 +16,7 @@ SELECT
     WHERE host IS NOT NULL AND host <> ''
       AND host NOT ILIKE '%ipthing.net%'
       AND host !~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$'
+      AND host !~ '^\[[0-9A-Fa-f:.]+\](:[0-9]+)?$'
       AND coalesce(tls_server_name, '') NOT ILIKE '%ipthing.net%'
   )::bigint AS other_host_requests
 FROM http_requests
