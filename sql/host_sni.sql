@@ -1,5 +1,6 @@
 -- Relationship between HTTP Host and TLS SNI (opportunistic TLS / probe signal).
--- Note: Host was not recorded 2025-12-19 through 2026-09-23.
+-- Limited to rows since Host recording resumed (2026-09-23 ~14:00 UTC);
+-- Host was not recorded from 2025-12-19 until then.
 SELECT
   CASE
     WHEN host_norm IS NOT NULL AND sni_norm IS NOT NULL AND host_norm = sni_norm
@@ -20,6 +21,7 @@ FROM (
     NULLIF(lower(split_part(COALESCE(host, ''), ':', 1)), '') AS host_norm,
     NULLIF(lower(COALESCE(tls_server_name, '')), '') AS sni_norm
   FROM http_requests
+  WHERE timestamp >= '2026-09-23 14:00'
 ) AS normalized
 GROUP BY 1
 ORDER BY 2 DESC;

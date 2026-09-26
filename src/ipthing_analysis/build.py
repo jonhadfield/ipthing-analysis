@@ -458,7 +458,7 @@ def build() -> Path:
                 access,
                 names="access_mode",
                 values="requests",
-                title="How clients addressed the service (Host unrecorded 19 Dec 2025–23 Sep 2026)",
+                title="How clients addressed the service (since 23 Sep 2026)",
             )
         ),
         "access_daily": _fig_html(
@@ -561,7 +561,7 @@ def build() -> Path:
                 host_sni,
                 names="host_sni_relation",
                 values="requests",
-                title="HTTP Host vs TLS SNI (Host unrecorded 19 Dec 2025–23 Sep 2026)",
+                title="HTTP Host vs TLS SNI (since 23 Sep 2026)",
             )
         ),
         "status": _fig_html(
