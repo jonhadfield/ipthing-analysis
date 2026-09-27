@@ -523,13 +523,28 @@
 
   <h2>TLS and HTTP versions</h2>
   <p>
-    Modern stacks prefer TLS&nbsp;1.3, HTTP/2, and AEAD cipher suites. Older
-    protocols and empty ALPN fields still appear from legacy clients, plain HTTP,
-    and older log rows before those columns were populated.
+    Modern stacks prefer TLS&nbsp;1.3, HTTP/2, and AEAD cipher suites. Newer rows also
+    record key-exchange curve and whether the TLS session resumed. Older protocols,
+    empty ALPN fields, and unset curves still appear from legacy clients, plain HTTP,
+    and rows logged before those columns existed.
   </p>
+  <div class="cards">
+    <div class="card"><div class="label">TLS resume rate</div><div class="value">{{ fingerprint.resume_pct }}</div></div>
+    <div class="card"><div class="label">Rows with resume flag</div><div class="value">{{ "{:,}".format(fingerprint.with_resume_flag) }}</div></div>
+    <div class="card"><div class="label">Any PTR resolved</div><div class="value">{{ fingerprint.ptr_rate }}</div></div>
+    <div class="card"><div class="label">mTLS subject present</div><div class="value">{{ fingerprint.mtls_rate }}</div></div>
+  </div>
+  <div class="note">
+    PTR and mTLS cards are presence rates only — reverse-DNS hostnames and client
+    certificate subjects are identifying and are never listed here. Session resume
+    is measured only on rows where <code>tls_did_resume</code> is set (NULLs from
+    older traffic are excluded from the rate).
+  </div>
   <div class="chart">{{ charts.tls | safe }}</div>
   <div class="chart">{{ charts.proto | safe }}</div>
   <div class="chart">{{ charts.tls_alpn | safe }}</div>
+  <div class="chart">{{ charts.tls_resume | safe }}</div>
+  <div class="chart">{{ charts.tls_curves | safe }}</div>
   <div class="chart">{{ charts.tls_ciphers | safe }}</div>
   <div class="table-wrap">
   <table>
@@ -548,6 +563,127 @@
     </tbody>
   </table>
   </div>
+  {% if tls_curves %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>TLS curve</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% for row in tls_curves[:12] %}
+      <tr>
+        <td><code>{{ row.curve }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  <h2>ClientHello fingerprints (JA4 / JA3)</h2>
+  <p>
+    JA4 and JA3 summarise the TLS ClientHello — cipher order, extensions, ALPN —
+    into a hash shared by many clients with the same stack. They describe
+    <em>software clusters</em> (browser-like vs bot-like shapes), not people.
+    Charts show frequency and uniqueness only; hashes are never joined back to
+    individual IPs on this page.
+  </p>
+  {% if not fingerprint.columns_ready %}
+  <div class="note">
+    Fingerprint columns are not on the database yet (or have no rows). After the
+    table owner runs the <code>ALTER TABLE … ADD COLUMN</code> migration and the
+    app starts writing JA3/JA4, this section fills in on the next report build.
+  </div>
+  {% endif %}
+  <div class="cards">
+    <div class="card"><div class="label">Requests with JA4</div><div class="value">{{ "{:,}".format(fingerprint.with_ja4) }}</div></div>
+    <div class="card"><div class="label">Distinct JA4</div><div class="value">{{ "{:,}".format(fingerprint.distinct_ja4) }}</div></div>
+    <div class="card"><div class="label">JA4 coverage</div><div class="value">{{ fingerprint.ja4_coverage }}</div></div>
+    <div class="card"><div class="label">Requests with JA3</div><div class="value">{{ "{:,}".format(fingerprint.with_ja3) }}</div></div>
+    <div class="card"><div class="label">Distinct JA3</div><div class="value">{{ "{:,}".format(fingerprint.distinct_ja3) }}</div></div>
+  </div>
+  <div class="chart">{{ charts.ja4_shape | safe }}</div>
+  <div class="note">
+    Shape buckets parse the JA4 first segment (TLS version, SNI present/absent,
+    ALPN). “Browser-like” usually means TLS&nbsp;1.3 + SNI + h2/h3; “no-SNI” and
+    empty ALPN lean scanner/automation. This is a coarse heuristic for mix, not
+    attribution.
+  </div>
+  {% if ja4_shape %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>JA4 shape</th><th>Requests</th><th>Distinct JA4</th></tr></thead>
+    <tbody>
+    {% for row in ja4_shape %}
+      <tr>
+        <td>{{ row.shape }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.distinct_ja4) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  <div class="chart">{{ charts.ja4_top | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>JA4 hash</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% if ja4_top %}
+    {% for row in ja4_top[:15] %}
+      <tr>
+        <td><code>{{ row.fingerprint }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    {% else %}
+      <tr><td colspan="3">No JA4 fingerprints recorded yet.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  <div class="chart">{{ charts.ja3_top | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>JA3 hash</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% if ja3_top %}
+    {% for row in ja3_top[:12] %}
+      <tr>
+        <td><code>{{ row.fingerprint }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    {% else %}
+      <tr><td colspan="3">No JA3 fingerprints recorded yet.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  {% if cookie_name_tokens %}
+  <p>
+    Cookie <em>names</em> only (values are never stored), shown when a token appears
+    on at least 50 requests. Presence of any cookie is already in
+    <strong>Probe behaviour</strong>; this list is anonymized frequency, not
+    per-client cookie sets.
+  </p>
+  <div class="chart">{{ charts.cookie_names | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Cookie name</th><th>Requests</th></tr></thead>
+    <tbody>
+    {% for row in cookie_name_tokens %}
+      <tr>
+        <td><code>{{ row.cookie_name }}</code></td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
 
   <h2>Referers</h2>
   <p>
@@ -587,7 +723,8 @@
   <ul>
     <li>Selection bias: only hosts that chose (or were pointed at) ipthing.</li>
     <li>Geo/ASN labels are best-effort and can lag or mis-attribute shared IPs.</li>
-    <li>Public pages should stay aggregated; raw headers, cookies, and query <em>values</em> are out of scope here (param <em>names</em> only).</li>
+    <li>Public pages stay aggregated: no raw headers, full User-Agents tied to clients, PTR hostnames, mTLS subjects, or cookie values. Fingerprints are hash frequency / clusters only.</li>
+    <li>Query and cookie <em>names</em> may appear as top-N tokens; values are out of scope.</li>
   </ul>
   <p class="meta">
     Built from the <code>ipthing</code> Neon database by the

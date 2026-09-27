@@ -15,6 +15,8 @@ import psycopg
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from ipthing_analysis.types import FingerprintCards
+
 ROOT = Path(__file__).resolve().parents[2]
 SQL_DIR = ROOT / "sql"
 TEMPLATE_DIR = ROOT / "templates"
@@ -63,6 +65,32 @@ def _read_sql(conn: psycopg.Connection, name: str) -> pd.DataFrame:
         cols = [d.name for d in cur.description]
         rows = cur.fetchall()
     return pd.DataFrame(rows, columns=cols)
+
+
+def _http_request_columns(conn: psycopg.Connection) -> set[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'http_requests'
+            """
+        )
+        return {row[0] for row in cur.fetchall()}
+
+
+def _read_sql_if(
+    conn: psycopg.Connection,
+    name: str,
+    *,
+    required: set[str],
+    available: set[str],
+    empty_columns: list[str],
+) -> pd.DataFrame:
+    """Run a query only when required columns exist (older DBs / pre-migrate)."""
+    if not required.issubset(available):
+        return pd.DataFrame(columns=empty_columns)
+    return _read_sql(conn, name)
 
 
 def _style(fig: go.Figure, *, height: int | None = None) -> go.Figure:
@@ -204,6 +232,7 @@ def _bars(
     title: str,
     orientation: str = "v",
     color_by: str | None = None,
+    label_limit: int = 28,
 ) -> go.Figure:
     if df.empty:
         return _empty_chart(title, "No data yet")
@@ -211,7 +240,7 @@ def _bars(
     # Shorten categorical axis labels so horizontal charts fit narrow screens.
     label_col = y if orientation == "h" else x
     if label_col in plot_df.columns and plot_df[label_col].dtype == object:
-        plot_df[label_col] = plot_df[label_col].map(_short_label)
+        plot_df[label_col] = plot_df[label_col].map(lambda v: _short_label(v, label_limit))
 
     color_col = color_by or (x if orientation == "h" else y)
     fig = px.bar(
@@ -376,6 +405,7 @@ def build() -> Path:
                 shutil.copy2(path, SITE_DIR / path.name)
 
     with _connect() as conn:
+        available_cols = _http_request_columns(conn)
         overview = _read_sql(conn, "overview.sql").iloc[0].to_dict()
         daily = _read_sql(conn, "daily_volume.sql")
         countries = _read_sql(conn, "top_countries.sql")
@@ -403,10 +433,131 @@ def build() -> Path:
         ip_family = _read_sql(conn, "ip_family.sql")
         ip_family_daily = _read_sql(conn, "ip_family_daily.sql")
         ipv6_orgs = _read_sql(conn, "ipv6_orgs.sql")
+        tls_curves = _read_sql_if(
+            conn,
+            "tls_curves.sql",
+            required={"tls_curve"},
+            available=available_cols,
+            empty_columns=["curve", "requests"],
+        )
+        tls_resume = _read_sql_if(
+            conn,
+            "tls_resume.sql",
+            required={"tls_did_resume"},
+            available=available_cols,
+            empty_columns=["with_resume_flag", "resumed", "full_handshake", "resume_pct"],
+        )
+        fingerprint_overview = _read_sql_if(
+            conn,
+            "fingerprint_overview.sql",
+            required={"ja4", "ja3", "ptr_hostname", "tls_client_subject", "tls_did_resume", "tls_curve"},
+            available=available_cols,
+            empty_columns=[
+                "requests",
+                "with_ja4",
+                "distinct_ja4",
+                "with_ja3",
+                "distinct_ja3",
+                "with_ptr",
+                "with_mtls_subject",
+                "with_resume_flag",
+                "resumed",
+                "with_tls_curve",
+                "with_cookies",
+            ],
+        )
+        ja4_top = _read_sql_if(
+            conn,
+            "ja4_top.sql",
+            required={"ja4"},
+            available=available_cols,
+            empty_columns=["fingerprint", "requests", "unique_ips"],
+        )
+        ja3_top = _read_sql_if(
+            conn,
+            "ja3_top.sql",
+            required={"ja3"},
+            available=available_cols,
+            empty_columns=["fingerprint", "requests", "unique_ips"],
+        )
+        ja4_shape = _read_sql_if(
+            conn,
+            "ja4_shape.sql",
+            required={"ja4"},
+            available=available_cols,
+            empty_columns=["shape", "requests", "distinct_ja4"],
+        )
+        cookie_name_tokens = _read_sql_if(
+            conn,
+            "cookie_name_tokens.sql",
+            required={"cookie_names"},
+            available=available_cols,
+            empty_columns=["cookie_name", "requests"],
+        )
 
     if not tls_ciphers.empty:
         tls_ciphers = tls_ciphers.copy()
         tls_ciphers["cipher"] = tls_ciphers["cipher_id"].map(_cipher_label)
+
+    tls_resume_row = (
+        tls_resume.iloc[0].to_dict()
+        if not tls_resume.empty
+        else {
+            "with_resume_flag": 0,
+            "resumed": 0,
+            "full_handshake": 0,
+            "resume_pct": None,
+        }
+    )
+    fp_row = (
+        fingerprint_overview.iloc[0].to_dict()
+        if not fingerprint_overview.empty
+        else {
+            "requests": 0,
+            "with_ja4": 0,
+            "distinct_ja4": 0,
+            "with_ja3": 0,
+            "distinct_ja3": 0,
+            "with_ptr": 0,
+            "with_mtls_subject": 0,
+            "with_resume_flag": 0,
+            "resumed": 0,
+            "with_tls_curve": 0,
+            "with_cookies": 0,
+        }
+    )
+
+    def _pct(part: object, whole: object) -> str:
+        try:
+            p, w = int(part or 0), int(whole or 0)
+        except (TypeError, ValueError):
+            return "—"
+        if w <= 0:
+            return "—"
+        return f"{p / w * 100:.1f}%"
+
+    fingerprint_cards: FingerprintCards = {
+        "with_ja4": int(fp_row.get("with_ja4") or 0),
+        "distinct_ja4": int(fp_row.get("distinct_ja4") or 0),
+        "ja4_coverage": _pct(fp_row.get("with_ja4"), fp_row.get("requests")),
+        "with_ja3": int(fp_row.get("with_ja3") or 0),
+        "distinct_ja3": int(fp_row.get("distinct_ja3") or 0),
+        "ptr_rate": _pct(fp_row.get("with_ptr"), fp_row.get("requests")),
+        "mtls_rate": _pct(fp_row.get("with_mtls_subject"), fp_row.get("requests")),
+        "resume_pct": (
+            f"{float(tls_resume_row['resume_pct']):.1f}%"
+            if tls_resume_row.get("resume_pct") is not None
+            and not (
+                isinstance(tls_resume_row.get("resume_pct"), float)
+                and pd.isna(tls_resume_row.get("resume_pct"))
+            )
+            else "—"
+        ),
+        "with_resume_flag": int(tls_resume_row.get("with_resume_flag") or 0),
+        "columns_ready": {"ja4", "ja3", "tls_did_resume", "tls_curve", "ptr_hostname"}.issubset(
+            available_cols
+        ),
+    }
 
     probe_daily_long = probe_paths_daily.melt(
         id_vars=["day"],
@@ -594,6 +745,82 @@ def build() -> Path:
         "heatmap": _fig_html(
             _heatmap(hour_of_week, title="Requests by day-of-week and hour (UTC)")
         ),
+        "tls_curves": _fig_html(
+            _bars(
+                tls_curves.head(12),
+                x="requests",
+                y="curve",
+                orientation="h",
+                title="TLS key-exchange curves",
+            )
+            if not tls_curves.empty
+            else _empty_chart("TLS key-exchange curves", "No curve data yet")
+        ),
+        "tls_resume": _fig_html(
+            _donut(
+                pd.DataFrame(
+                    [
+                        {"kind": "resumed", "requests": int(tls_resume_row.get("resumed") or 0)},
+                        {
+                            "kind": "full handshake",
+                            "requests": int(tls_resume_row.get("full_handshake") or 0),
+                        },
+                    ]
+                ),
+                names="kind",
+                values="requests",
+                title="TLS session resumption (rows with flag set)",
+            )
+            if int(tls_resume_row.get("with_resume_flag") or 0) > 0
+            else _empty_chart("TLS session resumption", "No resume flag data yet")
+        ),
+        "ja4_top": _fig_html(
+            _bars(
+                ja4_top.head(12),
+                x="requests",
+                y="fingerprint",
+                orientation="h",
+                title="Top JA4 fingerprints (hash only)",
+                label_limit=44,
+            )
+            if not ja4_top.empty
+            else _empty_chart("Top JA4 fingerprints", "No JA4 data yet")
+        ),
+        "ja3_top": _fig_html(
+            _bars(
+                ja3_top.head(10),
+                x="requests",
+                y="fingerprint",
+                orientation="h",
+                title="Top JA3 fingerprints (hash only)",
+                label_limit=40,
+            )
+            if not ja3_top.empty
+            else _empty_chart("Top JA3 fingerprints", "No JA3 data yet")
+        ),
+        "ja4_shape": _fig_html(
+            _bars(
+                ja4_shape,
+                x="requests",
+                y="shape",
+                orientation="h",
+                title="JA4 shape clusters (coarse heuristic)",
+                label_limit=48,
+            )
+            if not ja4_shape.empty
+            else _empty_chart("JA4 shape clusters", "No JA4 data yet")
+        ),
+        "cookie_names": _fig_html(
+            _bars(
+                cookie_name_tokens.head(15),
+                x="requests",
+                y="cookie_name",
+                orientation="h",
+                title="Common cookie names (≥50 requests)",
+            )
+            if not cookie_name_tokens.empty
+            else _empty_chart("Common cookie names", "No frequent cookie names yet")
+        ),
     }
 
     def _ms(value: object) -> str:
@@ -633,6 +860,14 @@ def build() -> Path:
         status_codes=status_codes.to_dict(orient="records"),
         response_formats=response_formats.to_dict(orient="records"),
         tls_ciphers=tls_ciphers.to_dict(orient="records") if not tls_ciphers.empty else [],
+        tls_curves=tls_curves.to_dict(orient="records") if not tls_curves.empty else [],
+        fingerprint=fingerprint_cards,
+        ja4_top=ja4_top.to_dict(orient="records") if not ja4_top.empty else [],
+        ja3_top=ja3_top.to_dict(orient="records") if not ja3_top.empty else [],
+        ja4_shape=ja4_shape.to_dict(orient="records") if not ja4_shape.empty else [],
+        cookie_name_tokens=(
+            cookie_name_tokens.to_dict(orient="records") if not cookie_name_tokens.empty else []
+        ),
         referer_hosts=referer_hosts.to_dict(orient="records"),
         charts=charts,
     )

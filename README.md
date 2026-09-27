@@ -16,10 +16,10 @@ The production app keeps writing request logs; this project only interprets them
 |------|---------|
 | Source | `http_requests` + `ip_info` in the `ipthing` Neon database |
 | Shape | Mostly `GET /` (only `GET` was allowed until 23 Sep 2026) — people and bots probing “what is my IP / headers” |
-| Useful dimensions | Time, IP/ASN/country (geo cache), TLS version, HTTP proto, User-Agent class, spoofed forwarding headers; `Host` was not recorded 19 Dec 2025–23 Sep 2026 |
+| Useful dimensions | Time, IP/ASN/country (geo cache), TLS version/cipher/curve/resume, HTTP proto, JA3/JA4 fingerprints, User-Agent class, spoofed forwarding headers; `Host` was not recorded 19 Dec 2025–23 Sep 2026 |
 | Exclusions | IPv6 was only enabled on 25 Sep 2026. IPv6 client addresses logged before then are unreliable and are excluded from every figure: `build.py` prefixes each query with CTEs that shadow `http_requests` and `ip_info` (cut-off set by `IPV6_ENABLED`). Loopback `::1` and IPv4-mapped `::ffff:` addresses are kept |
 
-Privacy: public pages use **aggregates only**. Cookie/Authorization values are not stored by the app (redacted at write time). Do not publish raw `headers` blobs or individual client identifiers in the site.
+Privacy: public pages use **aggregates only**. Cookie/Authorization values are not stored by the app (redacted at write time). Do not publish raw `headers` blobs, PTR hostnames, mTLS subjects, or individual client identifiers. Fingerprint hashes appear only as frequency / cluster stats. See [SCHEMA.md](SCHEMA.md) for column-level rules and the owner `ALTER TABLE` deploy note.
 
 ## Quick start
 
@@ -40,6 +40,7 @@ src/           # report builder
 templates/     # HTML shell + narrative
 static/        # favicon, apple-touch-icon, web manifest
 docs/          # generated static output (commit or publish via Pages)
+SCHEMA.md      # http_requests / ip_info column reference + privacy rules
 ```
 
 ## Publishing
