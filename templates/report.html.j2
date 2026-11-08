@@ -22,13 +22,15 @@
   <meta property="og:title" content="What hits a public IP echo service? · ipthing stats" />
   <meta property="og:description" content="Live traffic analysis of ipthing.net: {{ "{:,}".format(overview.requests) }} requests from {{ "{:,}".format(overview.unique_ips) }} IPs. Scanners, ASN/geo, TLS, and JA4 fingerprints." />
   <meta property="og:url" content="https://stats.ipthing.net/" />
-  <meta property="og:image" content="https://stats.ipthing.net/android-chrome-512x512.png" />
+  <meta property="og:image" content="https://stats.ipthing.net/og-share.jpg" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="720" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="ipthing stats" />
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="What hits a public IP echo service? · ipthing stats" />
   <meta name="twitter:description" content="Live traffic analysis of ipthing.net: scanners, ASN/geo, TLS, and JA4 fingerprints." />
-  <meta name="twitter:image" content="https://stats.ipthing.net/android-chrome-512x512.png" />
+  <meta name="twitter:image" content="https://stats.ipthing.net/og-share.jpg" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -318,6 +320,12 @@
     over the whole period, see <strong>Volume over time</strong> above.
   </div>
   <div class="chart">{{ charts.access | safe }}</div>
+  <div class="chart">{{ charts.access_daily | safe }}</div>
+  <div class="note" data-nosnippet>
+    The daily chart is limited to the same Host-recording window as the donut
+    (from 23&nbsp;September&nbsp;2026). Spikes in raw-IP mode usually track
+    internet-wide scanning rather than people typing the hostname.
+  </div>
   <div class="table-wrap">
   <table>
     <thead><tr><th>Access mode</th><th>Requests</th><th>Distinct IPs</th></tr></thead>
@@ -810,11 +818,37 @@
   <h2 id="user-agents">Client flavour (User-Agent heuristics)</h2>
   <p>
     Buckets are coarse string heuristics, not a security product. They separate
-    casual browser-like traffic from curl/scripts and explicit bot UAs so the
-    report can talk about mix without claiming perfect classification.
+    browser-like families from curl/scripts and explicit bot UAs so the report
+    can talk about mix without publishing raw User-Agent strings.
   </p>
+  <div class="cards">
+    <div class="card"><div class="label">Most common class</div><div class="value">{{ ua_summary.top_bucket }}</div></div>
+    <div class="card"><div class="label">Share of requests</div><div class="value">{{ ua_summary.top_share_pct }}</div></div>
+    <div class="card"><div class="label">Requests in class</div><div class="value">{{ "{:,}".format(ua_summary.top_requests) }}</div></div>
+    <div class="card"><div class="label">Distinct IPs in class</div><div class="value">{{ "{:,}".format(ua_summary.top_unique_ips) }}</div></div>
+    <div class="card"><div class="label">Classes seen</div><div class="value">{{ "{:,}".format(ua_summary.distinct_buckets) }}</div></div>
+  </div>
   <div class="chart chart-desktop-only">{{ charts.ua | safe }}</div>
   <div class="chart chart-mobile-only">{{ charts.ua_mobile | safe }}</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>UA class</th><th>Requests</th><th>Share</th><th>Distinct IPs</th></tr></thead>
+    <tbody>
+    {% for row in ua %}
+      <tr>
+        <td>{{ row.ua_bucket }}</td>
+        <td>{{ "{:,}".format(row.requests) }}</td>
+        <td>{{ row.share_pct }}%</td>
+        <td>{{ "{:,}".format(row.unique_ips) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="note" data-nosnippet>
+    “Most common” means the largest heuristic class by request count, not a
+    single literal User-Agent string. Raw UA text is never listed here.
+  </div>
 
   <h2 id="reading">How to read this responsibly</h2>
   <ul>

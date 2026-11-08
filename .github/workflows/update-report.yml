@@ -11,6 +11,7 @@ on:
       - "sql/**"
       - "src/**"
       - "templates/**"
+      - "static/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/update-report.yml"

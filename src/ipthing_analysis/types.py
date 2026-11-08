@@ -49,3 +49,14 @@ class TlsCurveRow(TypedDict):
 class CookieNameTokenRow(TypedDict):
     cookie_name: str
     requests: int
+
+
+class UaSummary(TypedDict):
+    """Most common User-Agent *class* only — never a raw UA string."""
+
+    top_bucket: str
+    top_requests: int
+    top_unique_ips: int
+    top_share_pct: str
+    distinct_buckets: int
+    total_requests: int

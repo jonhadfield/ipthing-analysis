@@ -15,7 +15,7 @@ import psycopg
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from ipthing_analysis.types import FingerprintCards
+from ipthing_analysis.types import FingerprintCards, UaSummary
 
 ROOT = Path(__file__).resolve().parents[2]
 SQL_DIR = ROOT / "sql"
@@ -39,7 +39,21 @@ def _connect() -> psycopg.Connection:
         )
     # Prefer direct endpoint for analytics queries when a pooler URL is supplied.
     url = url.replace("-pooler.", ".")
-    return psycopg.connect(url)
+    conn = psycopg.connect(url)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET default_transaction_read_only = on")
+            cur.execute("SHOW default_transaction_read_only")
+            flag = cur.fetchone()
+        if not flag or str(flag[0]).lower() not in {"on", "true", "1"}:
+            conn.close()
+            raise SystemExit(
+                "Could not enable default_transaction_read_only — refusing to continue."
+            )
+    except Exception:
+        conn.close()
+        raise
+    return conn
 
 
 # IPv6 was only enabled on IPV6_ENABLED; IPv6 peer addresses logged before then are
@@ -414,6 +428,7 @@ def build() -> Path:
         proto = _read_sql(conn, "http_proto.sql")
         ua = _read_sql(conn, "ua_buckets.sql")
         access = _read_sql(conn, "access_mode.sql")
+        access_daily = _read_sql(conn, "access_mode_daily.sql")
         top_hosts = _read_sql(conn, "top_hosts.sql")
         probe = _read_sql(conn, "probe_overview.sql").iloc[0].to_dict()
         methods = _read_sql(conn, "methods.sql")
@@ -602,6 +617,34 @@ def build() -> Path:
         ~referer_hosts["referer_host"].isin(["(none)"])
     ].head(12)
 
+    ua_total = int(ua["requests"].sum()) if not ua.empty else 0
+    if not ua.empty:
+        top_ua = ua.iloc[0]
+        ua_summary: UaSummary = {
+            "top_bucket": str(top_ua["ua_bucket"]),
+            "top_requests": int(top_ua["requests"]),
+            "top_unique_ips": int(top_ua.get("unique_ips") or 0),
+            "top_share_pct": f"{int(top_ua['requests']) / ua_total * 100:.1f}%"
+            if ua_total
+            else "—",
+            "distinct_buckets": int(len(ua)),
+            "total_requests": ua_total,
+        }
+        ua_rows = ua.copy()
+        ua_rows["share_pct"] = (
+            (ua_rows["requests"] / ua_total * 100).round(1) if ua_total else 0.0
+        )
+    else:
+        ua_summary = {
+            "top_bucket": "—",
+            "top_requests": 0,
+            "top_unique_ips": 0,
+            "top_share_pct": "—",
+            "distinct_buckets": 0,
+            "total_requests": 0,
+        }
+        ua_rows = ua
+
     charts = {
         "daily": _fig_html(_area(daily, x="day", y="requests", title="Requests per day")),
         "access": _fig_html(
@@ -610,6 +653,20 @@ def build() -> Path:
                 names="access_mode",
                 values="requests",
                 title="How clients addressed the service (since 23 Sep 2026)",
+            )
+        ),
+        "access_daily": _fig_html(
+            _area(
+                access_daily,
+                x="day",
+                y="requests",
+                color="access_mode",
+                title="Named vs raw IP vs other Host over time (since 23 Sep 2026)",
+            )
+            if not access_daily.empty
+            else _empty_chart(
+                "Named vs raw IP over time",
+                "No Host-era access data yet",
             )
         ),
         "countries": _fig_html(
@@ -835,11 +892,7 @@ def build() -> Path:
         "p99_ms": _ms(latency.get("p99_ms")),
     }
 
-    env = Environment(
-        loader=FileSystemLoader(TEMPLATE_DIR),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    html = env.get_template("report.html.j2").render(
+    html = render_report(
         generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         overview=overview,
         probe=probe,
@@ -869,11 +922,22 @@ def build() -> Path:
             cookie_name_tokens.to_dict(orient="records") if not cookie_name_tokens.empty else []
         ),
         referer_hosts=referer_hosts.to_dict(orient="records"),
+        ua=ua_rows.to_dict(orient="records") if not ua_rows.empty else [],
+        ua_summary=ua_summary,
         charts=charts,
     )
     out = SITE_DIR / "index.html"
     out.write_text(html)
     return out
+
+
+def render_report(**context: object) -> str:
+    """Render the public report HTML (used by build and smoke tests)."""
+    env = Environment(
+        loader=FileSystemLoader(TEMPLATE_DIR),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    return env.get_template("report.html.j2").render(**context)
 
 
 def main() -> None:

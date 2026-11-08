@@ -31,7 +31,7 @@ Older rows leave new columns NULL; report SQL treats NULL as “unknown / pre-fe
 | `id` | `SERIAL` | Primary key | not published |
 | `ip` | `TEXT` | Client peer IP | ASN/country aggregates only; distinct-IP counts OK |
 | `method`, `path`, `proto`, `scheme`, `host`, `request_uri` | `TEXT` | Request shape | aggregates / top-N paths & methods |
-| `user_agent` | `TEXT` | Full UA string | coarse buckets only — never raw UA lists |
+| `user_agent` | `TEXT` | Full UA string | coarse class buckets + “most common class” cards only — never raw UA lists |
 | `referer` | `TEXT` | Full referer URL | hostname only |
 | `headers` | `TEXT` | Redacted header dump | **never** publish |
 | `query_params` | `TEXT` | Query string / JSON | param **names** only |
