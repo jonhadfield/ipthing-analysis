@@ -1,7 +1,7 @@
 {
-  "name": "ipthing traffic analysis",
+  "name": "What hits a public IP echo service?",
   "short_name": "ipthing stats",
-  "description": "Aggregated traffic analysis for ipthing.net",
+  "description": "Live traffic analysis of ipthing.net: scanners, ASN/geo, TLS, and JA4 fingerprints",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1419",

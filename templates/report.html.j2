@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ipthing traffic analysis</title>
-  <meta name="description" content="Aggregated traffic analysis for ipthing.net — who hits a public IP echo service." />
+  <title>What hits a public IP echo service? · ipthing stats</title>
+  <meta name="description" content="Live traffic analysis of ipthing.net: {{ "{:,}".format(overview.requests) }} requests from {{ "{:,}".format(overview.unique_ips) }} IPs ({{ overview.first_day }}–{{ overview.last_day }}). Scanners, ASN/geo, TLS, and JA4 fingerprints on a public IP echo service." />
+  <link rel="canonical" href="https://stats.ipthing.net/" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <meta name="theme-color" content="#0f1419" />
   <meta name="application-name" content="ipthing stats" />
   <meta name="apple-mobile-web-app-title" content="ipthing stats" />
@@ -17,15 +19,40 @@
   <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="site.webmanifest" />
-  <meta property="og:title" content="ipthing traffic analysis" />
-  <meta property="og:description" content="Aggregated traffic analysis for ipthing.net — who hits a public IP echo service." />
+  <meta property="og:title" content="What hits a public IP echo service? · ipthing stats" />
+  <meta property="og:description" content="Live traffic analysis of ipthing.net: {{ "{:,}".format(overview.requests) }} requests from {{ "{:,}".format(overview.unique_ips) }} IPs. Scanners, ASN/geo, TLS, and JA4 fingerprints." />
   <meta property="og:url" content="https://stats.ipthing.net/" />
   <meta property="og:image" content="https://stats.ipthing.net/android-chrome-512x512.png" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="ipthing stats" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="ipthing traffic analysis" />
-  <meta name="twitter:description" content="Aggregated traffic analysis for ipthing.net." />
+  <meta name="twitter:title" content="What hits a public IP echo service? · ipthing stats" />
+  <meta name="twitter:description" content="Live traffic analysis of ipthing.net: scanners, ASN/geo, TLS, and JA4 fingerprints." />
   <meta name="twitter:image" content="https://stats.ipthing.net/android-chrome-512x512.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "ipthing traffic analysis",
+    "description": "Aggregated request logs from ipthing.net — a public IP echo service. Covers volume, scanners, ASN/country, TLS, and JA4 fingerprints.",
+    "url": "https://stats.ipthing.net/",
+    "creator": {
+      "@type": "Organization",
+      "name": "ipthing",
+      "url": "https://ipthing.net"
+    },
+    "isBasedOn": "https://ipthing.net",
+    "temporalCoverage": "{{ overview.first_day }}/{{ overview.last_day }}",
+    "variableMeasured": [
+      "HTTP requests",
+      "unique client IPs",
+      "ASN",
+      "country",
+      "TLS version",
+      "JA4 fingerprint"
+    ]
+  }
+  </script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root {
@@ -213,10 +240,11 @@
 <main>
   <h1>What hits a public IP echo service?</h1>
   <p class="lead">
-    Analysis of request logs from <a href="https://ipthing.net">ipthing.net</a> —
-    a small service that shows clients their IP, headers, and TLS details.
-    This is not a census of the internet; it is a long-running sample of who
-    probes (or uses) such an endpoint.
+    Live, aggregated stats from <a href="https://ipthing.net">ipthing.net</a> —
+    who hits a public IP echo service. Charts cover request volume, scanners,
+    ASN and country mix, TLS, and JA4 fingerprints.
+    This is a long-running sample of probes and “what’s my IP?” traffic, not a
+    census of the internet.
   </p>
   <p class="meta">Report generated {{ generated_at }}</p>
 
@@ -249,7 +277,7 @@
     <div class="card"><div class="label">HTTPS</div><div class="value">{{ "{:,}".format(overview.https_requests) }}</div></div>
     <div class="card"><div class="label">HTTP</div><div class="value">{{ "{:,}".format(overview.http_requests) }}</div></div>
   </div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     Until Wednesday 23&nbsp;September&nbsp;2026 the service only allowed
     <code>GET</code>, so historical method mix is almost entirely
     <code>GET /</code>. From 19&nbsp;December&nbsp;2025 through that same date the
@@ -268,7 +296,7 @@
   </p>
   <div class="chart">{{ charts.daily | safe }}</div>
   <div class="chart">{{ charts.heatmap | safe }}</div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     The heatmap is UTC. Scanner traffic often fills nights and weekends; human
     browsing tends to cluster in weekday daytime for a given region.
   </div>
@@ -284,7 +312,7 @@
     <li><strong>other Host</strong> — some other hostname (CDN leftovers, random/spoofed names). Often opportunistic TLS or misdirected probes.</li>
     <li><strong>unknown</strong> — Host was empty.</li>
   </ul>
-  <div class="note">
+  <div class="note" data-nosnippet>
     <code>Host</code> was not stored from 19&nbsp;December&nbsp;2025 until about 14:00&nbsp;UTC on
     23&nbsp;September&nbsp;2026, so this section only covers requests since then. For traffic
     over the whole period, see <strong>Volume over time</strong> above.
@@ -341,14 +369,14 @@
     <div class="card"><div class="label">CF-IP ≠ TCP peer</div><div class="value">{{ "{:,}".format(probe.cf_differs_from_peer) }}</div></div>
     <div class="card"><div class="label">Cookie-bearing</div><div class="value">{{ "{:,}".format(probe.with_cookies) }}</div></div>
   </div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     ipthing trusts the TCP peer address, not client-supplied forwarding headers.
     Non-empty <code>X-Forwarded-For</code> / <code>CF-Connecting-IP</code> that
     disagree with the peer are classic spoof attempts (or traffic that really
     did pass a proxy). Both are rare here — rarity is the finding.
   </div>
   <div class="chart">{{ charts.methods | safe }}</div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     The method chart and table cover requests from Wednesday
     23&nbsp;September&nbsp;2026 onward. Only <code>GET</code> was allowed before
     that, so earlier rows cannot show other verbs even if clients tried them.
@@ -369,7 +397,7 @@
   </table>
   </div>
   <div class="chart">{{ charts.paths | safe }}</div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     Successful inspector traffic is almost always <code>/</code>. The chart and
     table below list the top non-root paths — typically 404 probes
     (<code>/.env</code>, WordPress paths, and similar). Those paths are recorded
@@ -492,7 +520,7 @@
   </table>
   </div>
   <div class="chart">{{ charts.ipv6_share | safe }}</div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     The logs also hold IPv6 client addresses from before 25&nbsp;September&nbsp;2026,
     when IPv6 was not yet enabled. Those rows are treated as unreliable and left out
     of the whole report, so every IPv6 figure starts on 25&nbsp;September&nbsp;2026.
@@ -603,7 +631,7 @@
     <div class="card"><div class="label">Any PTR resolved</div><div class="value">{{ fingerprint.ptr_rate }}</div></div>
     <div class="card"><div class="label">mTLS subject present</div><div class="value">{{ fingerprint.mtls_rate }}</div></div>
   </div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     PTR and mTLS cards are presence rates only — reverse-DNS hostnames and client
     certificate subjects are identifying and are never listed here. Session resume
     is measured only on rows where <code>tls_did_resume</code> is set (NULLs from
@@ -657,7 +685,7 @@
     individual IPs on this page.
   </p>
   {% if not fingerprint.columns_ready %}
-  <div class="note">
+  <div class="note" data-nosnippet>
     Fingerprint columns are not on the database yet (or have no rows). After the
     table owner runs the <code>ALTER TABLE … ADD COLUMN</code> migration and the
     app starts writing JA3/JA4, this section fills in on the next report build.
@@ -671,7 +699,7 @@
     <div class="card"><div class="label">Distinct JA3</div><div class="value">{{ "{:,}".format(fingerprint.distinct_ja3) }}</div></div>
   </div>
   <div class="chart">{{ charts.ja4_shape | safe }}</div>
-  <div class="note">
+  <div class="note" data-nosnippet>
     Shape buckets parse the JA4 first segment (TLS version, SNI present/absent,
     ALPN). “Browser-like” usually means TLS&nbsp;1.3 + SNI + h2/h3; “no-SNI” and
     empty ALPN lean scanner/automation. This is a coarse heuristic for mix, not
