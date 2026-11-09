@@ -427,6 +427,7 @@ def build() -> Path:
         tls = _read_sql(conn, "tls_versions.sql")
         proto = _read_sql(conn, "http_proto.sql")
         ua = _read_sql(conn, "ua_buckets.sql")
+        ua_daily = _read_sql(conn, "ua_buckets_daily.sql")
         access = _read_sql(conn, "access_mode.sql")
         access_daily = _read_sql(conn, "access_mode_daily.sql")
         top_hosts = _read_sql(conn, "top_hosts.sql")
@@ -462,24 +463,34 @@ def build() -> Path:
             available=available_cols,
             empty_columns=["with_resume_flag", "resumed", "full_handshake", "resume_pct"],
         )
-        fingerprint_overview = _read_sql_if(
+        fingerprint_overview = _read_sql(conn, "fingerprint_overview.sql")
+        fingerprint_ja4 = _read_sql_if(
             conn,
-            "fingerprint_overview.sql",
-            required={"ja4", "ja3", "ptr_hostname", "tls_client_subject", "tls_did_resume", "tls_curve"},
+            "fingerprint_ja4.sql",
+            required={"ja4"},
             available=available_cols,
-            empty_columns=[
-                "requests",
-                "with_ja4",
-                "distinct_ja4",
-                "with_ja3",
-                "distinct_ja3",
-                "with_ptr",
-                "with_mtls_subject",
-                "with_resume_flag",
-                "resumed",
-                "with_tls_curve",
-                "with_cookies",
-            ],
+            empty_columns=["with_ja4", "distinct_ja4"],
+        )
+        fingerprint_ja3 = _read_sql_if(
+            conn,
+            "fingerprint_ja3.sql",
+            required={"ja3"},
+            available=available_cols,
+            empty_columns=["with_ja3", "distinct_ja3"],
+        )
+        fingerprint_ptr = _read_sql_if(
+            conn,
+            "fingerprint_ptr.sql",
+            required={"ptr_hostname"},
+            available=available_cols,
+            empty_columns=["with_ptr"],
+        )
+        fingerprint_mtls = _read_sql_if(
+            conn,
+            "fingerprint_mtls.sql",
+            required={"tls_client_subject"},
+            available=available_cols,
+            empty_columns=["with_mtls_subject"],
         )
         ja4_top = _read_sql_if(
             conn,
@@ -524,22 +535,30 @@ def build() -> Path:
             "resume_pct": None,
         }
     )
-    fp_row = (
+    fp_base = (
         fingerprint_overview.iloc[0].to_dict()
         if not fingerprint_overview.empty
-        else {
-            "requests": 0,
-            "with_ja4": 0,
-            "distinct_ja4": 0,
-            "with_ja3": 0,
-            "distinct_ja3": 0,
-            "with_ptr": 0,
-            "with_mtls_subject": 0,
-            "with_resume_flag": 0,
-            "resumed": 0,
-            "with_tls_curve": 0,
-            "with_cookies": 0,
-        }
+        else {"requests": 0, "with_cookies": 0}
+    )
+    fp_ja4 = (
+        fingerprint_ja4.iloc[0].to_dict()
+        if not fingerprint_ja4.empty
+        else {"with_ja4": 0, "distinct_ja4": 0}
+    )
+    fp_ja3 = (
+        fingerprint_ja3.iloc[0].to_dict()
+        if not fingerprint_ja3.empty
+        else {"with_ja3": 0, "distinct_ja3": 0}
+    )
+    fp_ptr = (
+        fingerprint_ptr.iloc[0].to_dict()
+        if not fingerprint_ptr.empty
+        else {"with_ptr": 0}
+    )
+    fp_mtls = (
+        fingerprint_mtls.iloc[0].to_dict()
+        if not fingerprint_mtls.empty
+        else {"with_mtls_subject": 0}
     )
 
     def _pct(part: object, whole: object) -> str:
@@ -551,14 +570,21 @@ def build() -> Path:
             return "—"
         return f"{p / w * 100:.1f}%"
 
+    requests_total = fp_base.get("requests")
     fingerprint_cards: FingerprintCards = {
-        "with_ja4": int(fp_row.get("with_ja4") or 0),
-        "distinct_ja4": int(fp_row.get("distinct_ja4") or 0),
-        "ja4_coverage": _pct(fp_row.get("with_ja4"), fp_row.get("requests")),
-        "with_ja3": int(fp_row.get("with_ja3") or 0),
-        "distinct_ja3": int(fp_row.get("distinct_ja3") or 0),
-        "ptr_rate": _pct(fp_row.get("with_ptr"), fp_row.get("requests")),
-        "mtls_rate": _pct(fp_row.get("with_mtls_subject"), fp_row.get("requests")),
+        "with_ja4": int(fp_ja4.get("with_ja4") or 0),
+        "distinct_ja4": int(fp_ja4.get("distinct_ja4") or 0),
+        "ja4_coverage": _pct(fp_ja4.get("with_ja4"), requests_total)
+        if "ja4" in available_cols
+        else "—",
+        "with_ja3": int(fp_ja3.get("with_ja3") or 0),
+        "distinct_ja3": int(fp_ja3.get("distinct_ja3") or 0),
+        "ptr_rate": _pct(fp_ptr.get("with_ptr"), requests_total)
+        if "ptr_hostname" in available_cols
+        else "—",
+        "mtls_rate": _pct(fp_mtls.get("with_mtls_subject"), requests_total)
+        if "tls_client_subject" in available_cols
+        else "—",
         "resume_pct": (
             f"{float(tls_resume_row['resume_pct']):.1f}%"
             if tls_resume_row.get("resume_pct") is not None
@@ -569,9 +595,8 @@ def build() -> Path:
             else "—"
         ),
         "with_resume_flag": int(tls_resume_row.get("with_resume_flag") or 0),
-        "columns_ready": {"ja4", "ja3", "tls_did_resume", "tls_curve", "ptr_hostname"}.issubset(
-            available_cols
-        ),
+        # JA section note: only needs ClientHello fingerprint columns.
+        "columns_ready": {"ja4", "ja3"}.issubset(available_cols),
     }
 
     probe_daily_long = probe_paths_daily.melt(
@@ -710,6 +735,17 @@ def build() -> Path:
         ),
         "ua_mobile": _fig_html(
             _bars(ua, x="ua_bucket", y="requests", title="User-Agent buckets")
+        ),
+        "ua_daily": _fig_html(
+            _area(
+                ua_daily,
+                x="day",
+                y="requests",
+                color="ua_bucket",
+                title="User-Agent class mix over time",
+            )
+            if not ua_daily.empty
+            else _empty_chart("User-Agent class mix over time", "No UA class data yet")
         ),
         "methods": _fig_html(
             _bars(

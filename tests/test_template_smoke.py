@@ -20,6 +20,7 @@ def _charts() -> dict[str, str]:
         "tls_alpn",
         "ua",
         "ua_mobile",
+        "ua_daily",
         "methods",
         "paths",
         "path_themes",
@@ -159,3 +160,10 @@ def test_render_report_includes_access_daily_section() -> None:
     assert "{{ charts.access_daily" not in html
     assert html.count(_CHART) >= 20
     assert "internet-wide scanning rather than people typing the hostname" in html
+
+
+def test_render_report_includes_ua_daily_chart() -> None:
+    html = render_report(**_context())
+    assert "{{ charts.ua_daily" not in html
+    assert html.count(_CHART) >= 21
+    assert "Client flavour (User-Agent heuristics)" in html

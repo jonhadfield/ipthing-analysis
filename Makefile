@@ -1,7 +1,11 @@
-.PHONY: sync report open
+.PHONY: sync test report open
 
 sync:
 	uv sync
+
+test:
+	uv sync --group dev
+	uv run pytest
 
 report:
 	uv run ipthing-report

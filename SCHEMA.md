@@ -66,4 +66,5 @@ uses country and org aggregates only.
    not “this fingerprint = this person.”
 4. Tolerate NULL on newer columns (traffic before the feature landed).
 5. Report builder skips queries whose required columns are absent so builds succeed
-   before the owner migration is applied.
+   before the owner migration is applied. Fingerprint overview totals always run;
+   JA3/JA4/PTR/mTLS presence counts are gated independently.

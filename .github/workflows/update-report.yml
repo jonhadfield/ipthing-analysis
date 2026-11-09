@@ -12,6 +12,7 @@ on:
       - "src/**"
       - "templates/**"
       - "static/**"
+      - "tests/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/update-report.yml"
@@ -34,6 +35,11 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
+
+      - name: Test
+        run: |
+          uv sync --group dev
+          uv run pytest
 
       - name: Build report
         env:
