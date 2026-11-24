@@ -139,6 +139,8 @@ def test_render_report_includes_seo_basics() -> None:
     assert 'content="https://stats.ipthing.net/og-share.jpg"' in html
     assert 'name="twitter:card" content="summary_large_image"' in html
     assert '"@type": "Dataset"' in html
+    assert '"license": "https://www.apache.org/licenses/LICENSE-2.0"' in html
+    assert '"isAccessibleForFree": true' in html
 
 
 def test_render_report_marks_notes_nosnippet() -> None:

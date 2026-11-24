@@ -4,6 +4,8 @@ Static analysis of traffic recorded by [ipthing](https://github.com/jonhadfield/
 
 **Live report:** [stats.ipthing.net](https://stats.ipthing.net/)
 
+License: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) (same as [ipthing](https://github.com/jonhadfield/ipthing)).
+
 ## What this is
 
 A **separate** repo from the Go service. It reads the Postgres database (Neon) in **read-only** fashion and builds a static HTML report: charts, tables, and short explanations of what the data shows.
